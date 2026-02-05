@@ -19,39 +19,55 @@ const logger = {
     error: (...args: any[]) => (LogLevels as any)[CURRENT_LOG_LEVEL] <= LogLevels.ERROR && logger._log('ERROR', '🛑', ...args),
 };
 
-// Simplified Docker API Client to bypass problematic native dependencies
-const dockerSocket = { socketPath: '/var/run/docker.sock' };
-const dockerApi = axios.create({
-    ...dockerSocket,
-    baseURL: 'http://localhost'
-});
+import http from 'node:http';
 
 const docker = {
+    async _request(method: string, path: string, body?: any): Promise<any> {
+        return new Promise((resolve, reject) => {
+            const options = {
+                socketPath: '/var/run/docker.sock',
+                path: `/v1.44${path}`,
+                method,
+                headers: body ? { 'Content-Type': 'application/json' } : {}
+            };
+
+            const req = http.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => data += chunk);
+                res.on('end', () => {
+                    if (res.statusCode && res.statusCode >= 400) {
+                        const err = new Error(`Docker API Error (${res.statusCode}): ${data}`);
+                        (err as any).status = res.statusCode;
+                        (err as any).data = data;
+                        return reject(err);
+                    }
+                    try {
+                        resolve(data ? JSON.parse(data) : {});
+                    } catch (e) {
+                        resolve(data);
+                    }
+                });
+            });
+
+            req.on('error', (err) => reject(err));
+            if (body) req.write(JSON.stringify(body));
+            req.end();
+        });
+    },
     async listContainers() {
-        const { data } = await dockerApi.get('/containers/json?all=true');
-        return data;
+        return this._request('GET', '/containers/json?all=true');
     },
     async getContainer(name: string) {
         return {
-            async inspect() {
-                const { data } = await dockerApi.get(`/containers/${name}/json`);
-                return data;
-            },
-            async start() {
-                await dockerApi.post(`/containers/${name}/start`);
-            },
-            async stop() {
-                await dockerApi.post(`/containers/${name}/stop`);
-            },
-            async remove() {
-                await dockerApi.delete(`/containers/${name}?v=true&force=true`);
-            }
+            inspect: () => this._request('GET', `/containers/${name}/json`),
+            start: () => this._request('POST', `/containers/${name}/start`),
+            stop: () => this._request('POST', `/containers/${name}/stop`),
+            remove: () => this._request('DELETE', `/containers/${name}?v=true&force=true`)
         };
     },
     async createContainer(config: any) {
-        // Destructure name as it goes into the query param, pass the rest in body
         const { name, ...rest } = config;
-        const { data } = await dockerApi.post(`/containers/create?name=${name}`, rest);
+        const data = await this._request('POST', `/containers/create?name=${name}`, rest);
         return this.getContainer(data.Id || data.Id);
     }
 };
@@ -231,8 +247,10 @@ async function startElizaAgent(agentId: string, config: any) {
         failureCounts.delete(agentId); // Success! Reset counter
         logger.info(`Eliza agent ${agentId} started successfully on runtime ${runtime.id}`);
     } catch (err: any) {
-        if (err.isAxiosError && err.response) {
-            logger.error(`Runtime API Error (${err.response.status}):`, JSON.stringify(err.response.data, null, 2));
+        if (err.status || (err.isAxiosError && err.response)) {
+            const status = err.status || err.response?.status;
+            const data = err.data || err.response?.data;
+            logger.error(`Runtime API Error (${status}):`, typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
         }
         logger.error(`Failed to start Eliza agent ${agentId}:`, err.message);
 
@@ -402,8 +420,10 @@ async function startOpenClawAgent(agentId: string, config: any) {
         failureCounts.delete(agentId); // Success! Reset counter
         logger.info(`OpenClaw agent ${agentId} started via Docker successfully.`);
     } catch (err: any) {
-        if (err.isAxiosError && err.response) {
-            logger.error(`Docker API Error (${err.response.status}):`, JSON.stringify(err.response.data, null, 2));
+        if (err.status || (err.isAxiosError && err.response)) {
+            const status = err.status || err.response?.status;
+            const data = err.data || err.response?.data;
+            logger.error(`Docker API Error (${status}):`, typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
         }
         logger.error(`Failed to start OpenClaw agent ${agentId}:`, err.message);
 
