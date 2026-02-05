@@ -239,70 +239,12 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
 
         if (userMsgError) throw userMsgError;
 
-        let agentResponseContent = `Response from agent regarding: ${content}`;
+        if (userMsgError) throw userMsgError;
 
-        if (agent.framework === 'openclaw') {
-            const { data: actual } = await fastify.supabase
-                .from('agent_actual_state')
-                .select('endpoint_url')
-                .eq('agent_id', agentId)
-                .single();
-
-            const { data: desired } = await fastify.supabase
-                .from('agent_desired_state')
-                .select('config')
-                .eq('agent_id', agentId)
-                .single();
-
-            fastify.log.info({ agentId, hasEndpoint: !!actual?.endpoint_url, hasConfig: !!desired?.config }, 'OpenClaw Proxy Check');
-
-            if (actual?.endpoint_url && desired?.config) {
-                fastify.log.info({ agentId, endpoint: actual.endpoint_url }, 'Proxying to OpenClaw gateway...');
-                const config = desired.config as any;
-                const token = config.gateway?.auth?.token;
-
-                try {
-                    const response = await fetch(`${actual.endpoint_url}/v1/chat/completions`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify({
-                            model: 'openclaw',
-                            messages: [{ role: 'user', content }]
-                        })
-                    });
-
-                    if (response.ok) {
-                        const result = await response.json() as any;
-                        agentResponseContent = result.choices?.[0]?.message?.content || agentResponseContent;
-                    } else {
-                        fastify.log.error({ status: response.status, agentId }, 'OpenClaw proxy failed');
-                        agentResponseContent = `Error: OpenClaw agent returned ${response.status}`;
-                    }
-                } catch (err: any) {
-                    fastify.log.error({ err, agentId }, 'Failed to proxy to OpenClaw');
-                    agentResponseContent = `Error: Could not reach OpenClaw agent at ${actual.endpoint_url}`;
-                }
-            }
-        }
-
-        // 2. Store agent message
-        const { data: agentMsg, error: agentMsgError } = await fastify.supabase
-            .from('agent_conversations')
-            .insert([{
-                agent_id: agentId,
-                user_id: request.userId,
-                content: agentResponseContent,
-                sender: 'agent'
-            }])
-            .select()
-            .single();
-
-        if (agentMsgError) throw agentMsgError;
-
-        return [userMsg, agentMsg];
+        // In the new Message Bus architecture, the backend only records the user message.
+        // The worker (on the VPS) listens for this message in real-time, calls the agent,
+        // and writes the response back to the database.
+        return [userMsg];
     });
 };
 

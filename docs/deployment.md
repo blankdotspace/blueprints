@@ -61,12 +61,43 @@ Then, deploy the **Backend** to Render using the `packages/backend/Dockerfile` a
 
 ---
 
-## Networking & Proxying
-The Backend automatically proxies chat requests to the correct agent. 
-- If `VPS_PUBLIC_IP` is set, it proxies to `http://<VPS_IP>:<AgentPort>`.
-- ensure your VPS firewall allows incoming traffic on the Agent port range (`19000-19999`).
+# Deployment: Hybrid Mode (Zero-Exposure VPS)
+
+This is the **recommended** secure production setup. By using the Database Message Bus architecture, your VPS remains completely private.
+
+## Architecture
+- **Frontend**: Hosted on **Vercel**.
+- **Backend**: Hosted on **Render**.
+- **Worker**: Hosted on your **Private VPS**.
+- **Communication**: Orchestrated via Supabase Realtime (No public IP needed!).
+
+## 1. Supabase Setup
+Ensure `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are ready.
+
+## 2. Shared Cluster Components
+Ensure you have the following environment variables in your Render (Backend) and VPS (Worker):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ENCRYPTION_KEY`
+
+## 3. VPS Configuration
+Your VPS now only needs an **outbound** connection to Supabase.
+1.  **Zero Ports**: You can block all incoming ports except SSH (22).
+2.  **Run setup**:
+    ```bash
+    git clone your-repo
+    docker compose up worker -d --build
+    ```
+
+## 4. Render (Backend) Configuration
+1.  Deploy the backend to Render.
+2.  Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+3.  The backend will automatically route messages via the database.
+
+## 5. Vercel (Frontend) Configuration
+1.  Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2.  Set `NEXT_PUBLIC_API_URL` to your Render backend URL.
 
 ## Troubleshooting
 - **404 Image Missing**: Ensure you ran `./scripts/setup-openclaw.sh` to build the `openclaw:local` image.
 - **Permission Denied**: Run `sudo chown -R $USER:$USER .` in the project root.
-- **Cannot Reach Agent**: Check that `VPS_PUBLIC_IP` is correct and the firewall is open.

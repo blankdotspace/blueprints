@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, User, Bot, Loader2, Sparkles, Trash2, Shield, MoreHorizontal } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
+import { createClient } from '@/lib/supabase';
 
 interface ChatMessage {
     id: string;
@@ -18,6 +19,7 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
     const [loading, setLoading] = useState(false);
     const [fetching, setFetching] = useState(true);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const supabase = createClient();
 
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -26,6 +28,29 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
             fetchChatHistory();
         }
     }, [agentId, session]);
+
+    // Real-time subscription
+    useEffect(() => {
+        const channel = supabase
+            .channel(`agent_conversations:${agentId}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'agent_conversations',
+                filter: `agent_id=eq.${agentId}`
+            }, (payload) => {
+                const newMessage = payload.new as ChatMessage;
+                setMessages(prev => {
+                    if (prev.find(m => m.id === newMessage.id)) return prev;
+                    return [...prev, newMessage];
+                });
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [agentId, supabase]);
 
     useEffect(() => {
         if (scrollRef.current) {
@@ -68,8 +93,8 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
             });
 
             if (!res.ok) throw new Error('Failed to send message');
-            const newMessages = await res.json();
-            setMessages(prev => [...prev, ...newMessages]);
+            // Note: We don't setMessages here because the Realtime subscription 
+            // will pick up the insertion almost instantly.
         } catch (err) {
             console.error(err);
         } finally {
@@ -137,8 +162,8 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                                 {msg.sender === 'user' ? <User size={16} /> : <Bot size={16} />}
                             </div>
                             <div className={`p-4 rounded-[1.5rem] text-sm font-medium leading-relaxed ${msg.sender === 'user'
-                                    ? 'bg-indigo-500 text-white rounded-tr-none shadow-xl shadow-indigo-500/10'
-                                    : 'bg-white/5 border border-white/5 text-slate-200 rounded-tl-none'
+                                ? 'bg-indigo-500 text-white rounded-tr-none shadow-xl shadow-indigo-500/10'
+                                : 'bg-white/5 border border-white/5 text-slate-200 rounded-tl-none'
                                 }`}>
                                 {msg.content}
                             </div>

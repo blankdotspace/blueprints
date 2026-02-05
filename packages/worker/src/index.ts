@@ -467,6 +467,110 @@ async function stopOpenClawAgent(agentId: string) {
     }
 }
 
+// --- Message Bus Implementation ---
+
+async function handleUserMessage(payload: any) {
+    const { id, agent_id, content, user_id } = payload;
+    logger.info(`Message Bus: Received user message for agent ${agent_id}`);
+
+    try {
+        // 1. Get agent's actual state (for local endpoint)
+        const { data: actual } = await supabase
+            .from('agent_actual_state')
+            .select('endpoint_url')
+            .eq('agent_id', agent_id)
+            .single();
+
+        // 2. Get agent's desired state (for framework and config)
+        const { data: agent } = await supabase
+            .from('agents')
+            .select('framework')
+            .eq('id', agent_id)
+            .single();
+
+        if (!actual?.endpoint_url || !agent) {
+            logger.warn(`Message Bus: Agent ${agent_id} not ready or not found.`);
+            return;
+        }
+
+        let agentResponseContent = `Response from ${agent.framework} agent.`;
+
+        if (agent.framework === 'openclaw') {
+            const { data: desired } = await supabase
+                .from('agent_desired_state')
+                .select('config')
+                .eq('agent_id', agent_id)
+                .single();
+
+            const config = (desired?.config as any) || {};
+            const token = config.gateway?.auth?.token;
+
+            // Notice: We call LOCALHOST because the worker and agent are on the same machine/network
+            const res = await fetch(`${actual.endpoint_url}/v1/chat/completions`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    model: 'openclaw',
+                    messages: [{ role: 'user', content }]
+                })
+            });
+
+            if (res.ok) {
+                const result = await res.json() as any;
+                agentResponseContent = result.choices?.[0]?.message?.content || agentResponseContent;
+            } else {
+                logger.error(`Message Bus: OpenClaw agent error (${res.status})`);
+                agentResponseContent = `Error: Agent returned status ${res.status}`;
+            }
+        } else {
+            // Placeholder for other frameworks (Eliza, etc.)
+            agentResponseContent = `Protocol Note: ${agent.framework} messaging bridge pending.`;
+        }
+
+        // 3. Post response back to database
+        const { error: postError } = await supabase
+            .from('agent_conversations')
+            .insert([{
+                agent_id,
+                user_id,
+                content: agentResponseContent,
+                sender: 'agent'
+            }]);
+
+        if (postError) {
+            logger.error(`Message Bus: Failed to post agent response:`, postError.message);
+        } else {
+            logger.info(`Message Bus: Agent response posted for agent ${agent_id}`);
+        }
+
+    } catch (err: any) {
+        logger.error(`Message Bus: Error processing message:`, err.message);
+    }
+}
+
+function startMessageBus() {
+    logger.info('🛰️  Starting Message Bus Listener...');
+
+    supabase
+        .channel('agent_conversations_changes')
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'agent_conversations',
+            filter: 'sender=eq.user'
+        }, (payload) => {
+            handleUserMessage(payload.new);
+        })
+        .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+                logger.info('✅ Message Bus: Subscribed to conversations');
+            }
+        });
+}
+
 // Run the reconciler every 10 seconds
 async function startReconciler() {
     await reconcile();
@@ -474,3 +578,4 @@ async function startReconciler() {
 }
 
 startReconciler();
+startMessageBus();
