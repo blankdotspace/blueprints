@@ -31,11 +31,9 @@ fi
 bun install
 bun run build
 
-# 4. Remove development bloat to keep image small
-echo "🧹 Cleaning up..."
-rm -rf .git
-rm -rf src
-# Keep node_modules and dist
+# 4. Build Docker Image
+echo "🐳 Building Docker image openclaw:local..."
+docker build -t openclaw:local .
 
-echo "✅ OpenClaw is ready at $TARGET_DIR"
-echo "You can now build the worker Docker image, and it will include OpenClaw."
+echo "✅ OpenClaw image is ready!"
+echo "You can now run 'docker compose up -d' and the worker will be able to start agents."
