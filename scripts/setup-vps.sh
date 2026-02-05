@@ -21,6 +21,15 @@ else
     echo "✅ Docker already installed."
 fi
 
+# 3. Install Node.js (v22)
+if ! command -v node &> /dev/null || [ "$(node -v | cut -d. -f1 | tr -d 'v')" -lt 20 ]; then
+    echo "📥 Installing Node.js 22..."
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+else
+    echo "✅ Node.js $(node -v) already installed."
+fi
+
 # 3. Install Docker Compose (v2)
 if ! docker compose version &> /dev/null; then
     echo "📥 Installing Docker Compose..."
