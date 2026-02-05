@@ -7,4 +7,4 @@ COPY packages ./packages
 
 RUN bun install
 
-CMD ["bun", "run", "--cwd", "packages/worker", "start"]
+CMD ["bun", "packages/worker/src/index.ts"]

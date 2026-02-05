@@ -13,4 +13,4 @@ RUN bun install
 EXPOSE 3000
 
 # Run backend
-CMD ["bun", "run", "--cwd", "packages/backend", "start"]
+CMD ["bun", "packages/backend/src/app.ts"]
