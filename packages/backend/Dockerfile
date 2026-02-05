@@ -7,7 +7,7 @@ COPY package.json bun.lock ./
 COPY packages ./packages
 
 # Install deps
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Expose Fastify port
 EXPOSE 3000
