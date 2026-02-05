@@ -92,6 +92,21 @@ const projectRoutes: FastifyPluginAsync = async (fastify) => {
             return reply.forbidden('Not authorized to delete this project');
         }
 
+        // Check for existing agents
+        const { count, error: countError } = await fastify.supabase
+            .from('agents')
+            .select('*', { count: 'exact', head: true })
+            .eq('project_id', id);
+
+        if (countError) {
+            fastify.log.error({ countError, id }, 'Failed to check agent count before project deletion');
+            throw countError;
+        }
+
+        if (count !== null && count > 0) {
+            throw fastify.httpErrors.badRequest(`Cannot delete cluster while ${count} agent${count === 1 ? '' : 's'} are present. Please remove all agents first.`);
+        }
+
         const { error } = await fastify.supabase
             .from('projects')
             .delete()

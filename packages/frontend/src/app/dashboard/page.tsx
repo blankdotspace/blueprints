@@ -260,25 +260,43 @@ export default function DashboardPage() {
                                 <div className="size-12 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
                             </div>
                         ) : selectedProject ? (
-                            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="flex items-center justify-between mb-8">
-                                    <button
-                                        onClick={() => setSelectedProject(null)}
-                                        className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-white flex items-center gap-2 group"
-                                    >
-                                        <ChevronRight size={14} className="rotate-180 group-hover:-translate-x-1 transition-transform" />
-                                        Back to Clusters
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteProject(selectedProject)}
-                                        className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-destructive flex items-center gap-2 group transition-colors"
-                                    >
-                                        <Trash2 size={14} />
-                                        Delete Cluster
-                                    </button>
-                                </div>
-                                <ProjectView projectId={selectedProject} />
-                            </div>
+                            (() => {
+                                const currentProject = projects.find(p => p.id === selectedProject);
+                                const hasAgents = (currentProject?.agentCount || 0) > 0;
+
+                                return (
+                                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div className="flex items-center justify-between mb-8">
+                                            <button
+                                                onClick={() => setSelectedProject(null)}
+                                                className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-white flex items-center gap-2 group"
+                                            >
+                                                <ChevronRight size={14} className="rotate-180 group-hover:-translate-x-1 transition-transform" />
+                                                Back to Clusters
+                                            </button>
+                                            <div className="flex items-center gap-4">
+                                                {hasAgents && (
+                                                    <span className="text-[10px] font-bold text-destructive/60 uppercase tracking-widest bg-destructive/5 px-3 py-1 rounded-lg border border-destructive/10">
+                                                        Remove {currentProject.agentCount} agent{currentProject.agentCount === 1 ? '' : 's'} to delete
+                                                    </span>
+                                                )}
+                                                <button
+                                                    onClick={() => handleDeleteProject(selectedProject)}
+                                                    disabled={hasAgents}
+                                                    className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 group transition-all ${hasAgents
+                                                        ? 'text-muted-foreground/30 cursor-not-allowed opacity-50'
+                                                        : 'text-muted-foreground hover:text-destructive'
+                                                        }`}
+                                                >
+                                                    <Trash2 size={14} />
+                                                    Delete Cluster
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <ProjectView projectId={selectedProject} />
+                                    </div>
+                                );
+                            })()
                         ) : view === 'projects' ? (
                             <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <div className="flex justify-between items-end">
