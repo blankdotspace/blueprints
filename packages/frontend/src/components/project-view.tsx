@@ -500,13 +500,13 @@ export default function ProjectView({ projectId }: { projectId: string }) {
                                                         }
                                                     }}
                                                     className={`${purgeStatus.color} flex items-center gap-2 px-3 py-1 rounded-full border text-[9px] font-mono tracking-tighter hover:bg-destructive hover:text-white hover:border-destructive transition-all duration-300 group/purge-btn cursor-pointer active:scale-95`}
-                                                    title={purgeStatus.label === 'STOPPING IN' ? "Skip Timer: STOP IMMEDIATELY" : "Skip Timer: EXECUTE FINAL PURGE NOW"}
+                                                    title={purgeStatus.label === 'STOPPING IN' ? "Skip Timer: STOP IMMEDIATELY" : "Skip Timer: EXECUTE TERMINATION NOW"}
                                                 >
                                                     <Activity size={10} className="animate-spin group-hover/purge-btn:hidden" />
                                                     <Skull size={10} className="hidden group-hover/purge-btn:block animate-pulse" />
                                                     <span className="group-hover/purge-btn:hidden">{purgeStatus.label} {purgeStatus.time}</span>
                                                     <span className="hidden group-hover/purge-btn:inline font-black">
-                                                        {purgeStatus.label === 'STOPPING IN' ? 'STOP NOW' : 'PURGE NOW'}
+                                                        {purgeStatus.label === 'STOPPING IN' ? 'STOP NOW' : 'TERMINATE NOW'}
                                                     </span>
                                                 </button>
                                             ) : (
@@ -569,7 +569,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
                                         className={`size-14 rounded-2xl flex items-center justify-center transition-all active:scale-95 ${desired.purge_at
                                             ? 'bg-amber-500 text-white animate-pulse shadow-lg shadow-amber-500/20'
                                             : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'}`}
-                                        title={desired.purge_at ? 'ABORT PURGE' : 'Purge Agent'}
+                                        title={desired.purge_at ? 'ABORT TERMINATION' : 'Terminate Agent'}
                                     >
                                         <Skull size={22} />
                                     </button>

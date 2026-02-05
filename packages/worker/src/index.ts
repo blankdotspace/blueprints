@@ -169,7 +169,7 @@ async function reconcile() {
                 // Stage 1: Absolute Purge (Time to delete)
                 if (now >= purgeDate) {
                     const framework = agent.framework === 'openclaw' ? 'OpenClaw' : 'Eliza';
-                    logger.info(`[PURGE] Executing final deletion for ${framework} agent ${agent.id}...`);
+                    logger.info(`[TERMINATE] Executing final deletion for ${framework} agent ${agent.id}...`);
                     if (agent.framework === 'openclaw') {
                         await stopOpenClawAgent(agent.id);
                     } else {
@@ -184,7 +184,7 @@ async function reconcile() {
                 // If it needs to be re-added, it should be done explicitly.
                 // const stopDate = new Date(purgeDate.getTime() - (24 * 60 * 60 * 1000));
                 // if (now >= stopDate && desired.enabled) {
-                //     console.log(`[PURGE] Entering decommissioning for agent ${agent.id}. Disabling...`);
+                //     console.log(`[TERMINATE] Entering decommissioning for agent ${agent.id}. Disabling...`);
                 //     await supabase.from('agent_desired_state').update({ enabled: false }).eq('agent_id', agent.id);
                 //     desired.enabled = false; // Update local state for subsequent logic
                 // }
