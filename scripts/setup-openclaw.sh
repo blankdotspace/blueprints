@@ -38,9 +38,9 @@ if [ ! -f "$BUN_BIN" ]; then
     exit 1
 fi
 
-echo "Using Bun: $BUN_BIN"
-$BUN_BIN install
-$BUN_BIN run build
+echo "Using pnpm for installation..."
+pnpm install
+pnpm run build
 
 # 4. Build Docker Image
 echo "🐳 Building Docker image openclaw:local..."
