@@ -398,7 +398,7 @@ async function startOpenClawAgent(agentId: string, config: any) {
             User: `${uid}:${gid}`,
             name: containerName,
             Env: env,
-            Cmd: ['node', 'dist/index.js', 'gateway', '--allow-unconfigured', '--bind', 'lan'],
+            Cmd: ['node', 'dist/index.js', 'gateway', '--allow-unconfigured', '--bind', '0.0.0.0'],
             ExposedPorts: {
                 '18789/tcp': {}
             },
@@ -410,6 +410,11 @@ async function startOpenClawAgent(agentId: string, config: any) {
                     '18789/tcp': [{ HostPort: hostPort.toString() }]
                 },
                 RestartPolicy: { Name: 'unless-stopped' }
+            },
+            NetworkingConfig: {
+                EndpointsConfig: {
+                    'blueprints-network': {}
+                }
             }
         });
 
@@ -512,8 +517,11 @@ async function handleUserMessage(payload: any) {
             const config = (desired?.config as any) || {};
             const token = config.gateway?.auth?.token;
 
-            // Notice: We call LOCALHOST because the worker and agent are on the same machine/network
-            const res = await fetch(`${actual.endpoint_url}/v1/chat/completions`, {
+            // Use internal container hostname within blueprints-network
+            const agentUrl = `http://openclaw-${agent_id}:18789`;
+            logger.info(`Message Bus: Calling agent at ${agentUrl}`);
+
+            const res = await fetch(`${agentUrl}/v1/chat/completions`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
