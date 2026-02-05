@@ -438,7 +438,7 @@ async function startOpenClawAgent(agentId: string, config: any) {
             },
             NetworkingConfig: {
                 EndpointsConfig: {
-                    'blueprints-network': {}
+                    [process.env.DOCKER_NETWORK_NAME || 'blueprints_blueprints-network']: {}
                 }
             }
         });
