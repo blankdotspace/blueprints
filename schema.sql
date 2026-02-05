@@ -107,3 +107,6 @@ create policy "Users can see and manage their own agent conversations" on public
     for all using (
         user_id = auth.uid()
     );
+
+-- 8. Enable Realtime for the Message Bus
+alter publication supabase_realtime add table public.agent_conversations;
