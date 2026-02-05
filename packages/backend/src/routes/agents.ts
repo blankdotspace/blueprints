@@ -239,8 +239,6 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
 
         if (userMsgError) throw userMsgError;
 
-        if (userMsgError) throw userMsgError;
-
         // In the new Message Bus architecture, the backend only records the user message.
         // The worker (on the VPS) listens for this message in real-time, calls the agent,
         // and writes the response back to the database.

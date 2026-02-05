@@ -93,6 +93,7 @@ async function reconcile() {
     isReconciling = true;
 
     try {
+        // Move to debug to avoid log spam every 10s
         logger.debug('--- Reconciling Agents ---');
 
         // 1. Fetch all agents with their states
@@ -340,6 +341,8 @@ async function startOpenClawAgent(agentId: string, config: any) {
                 const workspacePath = path.resolve(process.cwd(), (process.cwd().includes('packages') ? '../../' : './'), 'workspaces', agentId);
                 if (!fs.existsSync(workspacePath)) {
                     fs.mkdirSync(workspacePath, { recursive: true });
+                    // Ensure the container user (node) can write to it
+                    try { fs.chmodSync(workspacePath, 0o777); } catch (e) { }
                 }
                 const configPath = path.join(workspacePath, 'openclaw.json');
                 if (!fs.existsSync(configPath)) {
@@ -367,6 +370,8 @@ async function startOpenClawAgent(agentId: string, config: any) {
         const workspacePath = path.resolve(process.cwd(), (process.cwd().includes('packages') ? '../../' : './'), 'workspaces', agentId);
         if (!fs.existsSync(workspacePath)) {
             fs.mkdirSync(workspacePath, { recursive: true });
+            // Ensure the container user (node) can write to it
+            try { fs.chmodSync(workspacePath, 0o777); } catch (e) { }
         }
 
         // Write config to file in workspace
