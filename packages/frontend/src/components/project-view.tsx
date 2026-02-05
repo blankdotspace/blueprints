@@ -16,7 +16,7 @@ interface Project {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
-export default function ProjectView({ projectId }: { projectId: string }) {
+export default function ProjectView({ projectId, onDataChange }: { projectId: string; onDataChange?: () => void }) {
     const { session } = useAuth();
     const [project, setProject] = useState<Project | null>(null);
     const [agents, setAgents] = useState<any[]>([]);
@@ -114,6 +114,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             setIsAdding(false);
             setNewAgentName('');
             setError(null);
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }
@@ -132,6 +133,8 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             if (!res.ok) throw new Error('Failed to update agent state');
             await fetchProjectAndAgents();
             setError(null); // Clear on success
+            onDataChange?.();
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }
@@ -158,6 +161,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             if (!res.ok) throw new Error('Failed to initiate purge protocol');
             await fetchProjectAndAgents();
             setError(null);
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }
@@ -179,6 +183,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             if (!res.ok) throw new Error('Failed to execute force purge');
             await fetchProjectAndAgents();
             setError(null);
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }
@@ -200,6 +205,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             if (!res.ok) throw new Error('Failed to skip stop timer');
             await fetchProjectAndAgents();
             setError(null);
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }
@@ -219,6 +225,7 @@ export default function ProjectView({ projectId }: { projectId: string }) {
             if (!res.ok) throw new Error('Failed to abort purge');
             await fetchProjectAndAgents();
             setError(null);
+            onDataChange?.();
         } catch (err: any) {
             setError(err.message);
         }

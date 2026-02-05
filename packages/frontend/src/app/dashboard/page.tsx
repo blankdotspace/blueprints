@@ -275,14 +275,10 @@ export default function DashboardPage() {
                                                 Back to Clusters
                                             </button>
                                             <div className="flex items-center gap-4">
-                                                {hasAgents && (
-                                                    <span className="text-[10px] font-bold text-destructive/60 uppercase tracking-widest bg-destructive/5 px-3 py-1 rounded-lg border border-destructive/10">
-                                                        Remove {currentProject.agentCount} agent{currentProject.agentCount === 1 ? '' : 's'} to delete
-                                                    </span>
-                                                )}
                                                 <button
                                                     onClick={() => handleDeleteProject(selectedProject)}
                                                     disabled={hasAgents}
+                                                    title={hasAgents ? `Must remove ${currentProject.agentCount} active agent${currentProject.agentCount === 1 ? '' : 's'} before deletion` : 'Delete Cluster'}
                                                     className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 group transition-all ${hasAgents
                                                         ? 'text-muted-foreground/30 cursor-not-allowed opacity-50'
                                                         : 'text-muted-foreground hover:text-destructive'
@@ -293,7 +289,13 @@ export default function DashboardPage() {
                                                 </button>
                                             </div>
                                         </div>
-                                        <ProjectView projectId={selectedProject} />
+                                        <ProjectView
+                                            projectId={selectedProject}
+                                            onDataChange={async () => {
+                                                const { data: { session } } = await supabase.auth.getSession();
+                                                if (session?.access_token) fetchProjects(session.access_token);
+                                            }}
+                                        />
                                     </div>
                                 );
                             })()
