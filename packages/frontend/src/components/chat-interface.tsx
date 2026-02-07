@@ -16,11 +16,9 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
     const { session } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [fetching, setFetching] = useState(true);
-    const [thinkingTime, setThinkingTime] = useState(0);
     const [agentModel, setAgentModel] = useState<string>('LLM');
     const scrollRef = useRef<HTMLDivElement>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const scrollToBottom = () => {
         if (scrollRef.current) {
@@ -33,16 +31,28 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
         if (loading) {
             setThinkingTime(0);
             scrollToBottom();
+
+            // Safety timeout: Clear loading if no response for 125s (worker is 120s)
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+            timeoutRef.current = setTimeout(() => {
+                setLoading(false);
+            }, 125000);
+
             interval = setInterval(() => {
                 setThinkingTime(prev => prev + 1);
             }, 1000);
+        } else {
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
         }
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        };
     }, [loading]);
 
     // Auto-scroll when thinking time updates (to keep new bubbles in view)
     useEffect(() => {
-        if (loading && thinkingTime % 2 === 0) {
+        if (loading) {
             scrollToBottom();
         }
     }, [thinkingTime, loading]);
@@ -68,9 +78,18 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                 filter: `agent_id=eq.${agentId}`
             }, (payload) => {
                 const newMessage = payload.new as ChatMessage;
+
+                // If we get an agent message, stop thinking
+                if (newMessage.sender === 'agent') {
+                    setLoading(false);
+                }
+
                 setMessages(prev => {
                     if (prev.find(m => m.id === newMessage.id)) return prev;
-                    return [...prev, newMessage];
+                    const updated = [...prev, newMessage];
+                    // Immediate scroll for new messages
+                    setTimeout(scrollToBottom, 50);
+                    return updated;
                 });
             })
             .subscribe();
@@ -81,9 +100,7 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
     }, [agentId, supabase]);
 
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-        }
+        scrollToBottom();
     }, [messages]);
 
     useEffect(() => {
@@ -128,6 +145,7 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
             if (!res.ok) throw new Error('Failed to fetch chat history');
             const data = await res.json();
             setMessages(data);
+            setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error(err);
         } finally {
@@ -153,13 +171,16 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                 body: JSON.stringify({ content: userMsgContent })
             });
 
-            if (!res.ok) throw new Error('Failed to send message');
-            // Note: We don't setMessages here because the Realtime subscription 
-            // will pick up the insertion almost instantly.
+            if (!res.ok) {
+                setLoading(false);
+                throw new Error('Failed to send message');
+            }
+            // Note: We don't setMessages or setLoading(false) here because the 
+            // Realtime subscription will handle both the user message insertion 
+            // and the agent response detection.
         } catch (err) {
             console.error(err);
-        } finally {
-            setLoading(false);
+            setLoading(false); // Only clear on error
         }
     };
 
