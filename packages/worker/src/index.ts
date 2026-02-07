@@ -482,6 +482,23 @@ async function startOpenClawAgent(agentId: string, config: any) {
         const decrypted = cryptoUtils.decryptConfig(configWithDefaults);
         const finalConfig = sanitizeConfig(decrypted);
 
+        // Self-Healing: If sanitization changed the config, persist it back to the DB
+        // We compare the decrypted versions but must encrypt before saving
+        if (JSON.stringify(decrypted) !== JSON.stringify(finalConfig)) {
+            logger.info(`Self-Healing: Configuration mismatch detected for agent ${agentId}. Updating database with sanitized config.`);
+            const encryptedConfig = cryptoUtils.encryptConfig(finalConfig);
+
+            // We update the agent_desired_state so the next reconciliation sees the clean version
+            const { error: patchError } = await supabase
+                .from('agent_desired_state')
+                .update({ config: encryptedConfig })
+                .eq('agent_id', agentId);
+
+            if (patchError) {
+                logger.error(`Self-Healing: Failed to persist sanitized config for ${agentId}:`, patchError.message);
+            }
+        }
+
         logger.info(`Writing OpenClaw config to ${configPath}...`);
         fs.writeFileSync(configPath, JSON.stringify(finalConfig, null, 2));
 
@@ -694,7 +711,7 @@ async function handleUserMessage(payload: any) {
                         }
 
                         logger.error(`Message Bus: ${label} (Status: ${status || err.code}) on attempt ${attempts}. Details: ${detailedError}`);
-                        agentResponseContent = `Error: ${detailedError}`;
+                        agentResponseContent = `${label}: ${detailedError}`;
                         break; // Exit loop on non-connection errors
                     }
                 }

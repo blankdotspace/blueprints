@@ -56,5 +56,27 @@ export const cryptoUtils = {
             }
         }
         return decrypted;
+    },
+
+    encryptConfig(config: any): any {
+        if (!config) return config;
+
+        const encrypted = Array.isArray(config) ? [] : {};
+        for (const [key, value] of Object.entries(config)) {
+            if (typeof value === 'string' && (
+                key.toUpperCase().endsWith('_KEY') ||
+                key.toUpperCase().endsWith('_TOKEN') ||
+                key.toUpperCase() === 'TOKEN' ||
+                key.toUpperCase().includes('SECRET') ||
+                key.toUpperCase().includes('PASSWORD')
+            )) {
+                (encrypted as any)[key] = this.encrypt(value);
+            } else if (typeof value === 'object' && value !== null) {
+                (encrypted as any)[key] = this.encryptConfig(value);
+            } else {
+                (encrypted as any)[key] = value;
+            }
+        }
+        return encrypted;
     }
 };
