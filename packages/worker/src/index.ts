@@ -106,7 +106,7 @@ async function reconcile() {
 
     try {
         // Move to debug to avoid log spam every 10s
-        logger.debug('--- Reconciling Agents ---');
+        // logger.debug('--- Reconciling Agents ---');
 
         // 1. Fetch all agents with their states
         const { data: agents, error } = await supabase
@@ -592,7 +592,8 @@ async function handleUserMessage(payload: any) {
                 logger.debug(`Message Bus: Running in Docker, switching to internal URL: ${agentUrl}`);
             }
 
-            logger.info(`Message Bus: Calling agent at ${agentUrl}`);
+            const maskToken = (t: string) => t ? `${t.substring(0, 4)}...${t.substring(t.length - 4)}` : 'null';
+            logger.info(`Message Bus: Calling agent at ${agentUrl} (Token: ${maskToken(token)})`);
 
             let attempts = 0;
             const maxAttempts = 5;
@@ -624,7 +625,9 @@ async function handleUserMessage(payload: any) {
                         logger.warn(`Message Bus: Connection refused (Agent starting?). Retrying attempt ${attempts}/${maxAttempts} in 1s...`);
                         await new Promise(resolve => setTimeout(resolve, 1000));
                     } else {
-                        logger.error(`Message Bus: OpenClaw agent error (${err.status || err.message}) on attempt ${attempts}`);
+                        const responseData = err.response?.data;
+                        const detailedError = responseData ? (typeof responseData === 'object' ? JSON.stringify(responseData) : responseData) : err.message;
+                        logger.error(`Message Bus: OpenClaw agent error (${err.status || err.message}) on attempt ${attempts}. Details: ${detailedError}`);
                         agentResponseContent = `Error: Agent returned status ${err.status || err.message}`;
                         break; // Exit loop on non-connection errors or max attempts
                     }

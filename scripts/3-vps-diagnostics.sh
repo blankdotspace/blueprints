@@ -48,11 +48,48 @@ if [ -z "$AGENT_CONTAINERS" ]; then
 else
     for AGENT in $AGENT_CONTAINERS; do
         NAME=$(docker inspect $AGENT --format '{{.Name}}')
+        ID_CLEAN=${NAME#"/openclaw-"}
         echo "🔎 Agent: $NAME (ID: $AGENT)"
         echo "   Networks & IP:"
         docker inspect $AGENT --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}: {{.IPAddress}}{{end}}'
         echo "   Mounts:"
         docker inspect $AGENT --format '{{range .Mounts}}   SRC: {{.Source}} -> DST: {{.Destination}}{{println}}{{end}}'
+        
+        # New Config Audit
+        echo "   Config Audit (.openclaw/openclaw.json):"
+        CONFIG_FILE="/opt/blueprints/workspaces/$ID_CLEAN/.openclaw/openclaw.json"
+        if [ -f "$CONFIG_FILE" ]; then
+            TOKEN=$(cat "$CONFIG_FILE" | grep -A 5 '"gateway"' | grep '"token"' | cut -d'"' -f4)
+            if [ ! -z "$TOKEN" ]; then
+                echo "      ✅ Gateway Token Found: ${TOKEN:0:4}...${TOKEN: -4}"
+            else
+                echo "      ❌ Gateway Token MISSING in config!"
+            fi
+            BIND=$(cat "$CONFIG_FILE" | grep -A 5 '"gateway"' | grep '"bind"' | cut -d'"' -f4)
+            echo "      ✅ Bind Mode: $BIND"
+        else
+            echo "      ⚠️ Config file not found at $CONFIG_FILE"
+        fi
+        
+        # Connectivity Test from Worker
+        if [ ! -z "$WORKER_CONTAINER" ]; then
+            IP=$(docker inspect $AGENT --format '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+            echo "   Worker -> Agent Connectivity Test ($IP:18789):"
+            # docker exec $WORKER_CONTAINER curl -s -o /dev/null -w "%{http_code}" http://$IP:18789/v1/chat/completions -H "Authorization: Bearer test" > /dev/null 2>&1
+            TEST_RESULT=$(docker exec $WORKER_CONTAINER curl -s -o /dev/null -w "%{http_code}" http://$IP:18789/v1/chat/completions -H "Authorization: Bearer $TOKEN")
+            if [ "$TEST_RESULT" == "403" ]; then
+                echo "      ⚠️ Connectivity test returned 403 (Expected if token mismatch or test hit)"
+            elif [ "$TEST_RESULT" == "401" ]; then
+                echo "      ❌ Connectivity test returned 401 (Unauthorized - check token scope)"
+            elif [ "$TEST_RESULT" == "404" ]; then
+                echo "      ❌ Connectivity test returned 404 (Endpoint not found?)"
+            elif [ "$TEST_RESULT" == "000" ]; then
+                echo "      ❌ Connectivity test FAILED (No response)"
+            else
+                echo "      ✅ Connectivity test returned: $TEST_RESULT"
+            fi
+        fi
+        echo ""
     done
 fi
 echo ""
