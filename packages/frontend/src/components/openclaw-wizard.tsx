@@ -14,6 +14,9 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
     const existingConfig = getOne(agent.agent_desired_state)?.config || {};
     const [step, setStep] = useState(1);
     const [saving, setSaving] = useState(false);
+    const [veniceModels, setVeniceModels] = useState<any[]>([]);
+    const [fetchingModels, setFetchingModels] = useState(false);
+    const [modelError, setModelError] = useState<string | null>(null);
 
     // Initial State derived from existing config or defaults
     const [config, setConfig] = useState({
@@ -21,6 +24,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
         mode: 'api_key', // Enforce API Key
         token: existingConfig.models?.providers?.[existingConfig.auth?.profiles?.['default']?.provider]?.apiKey || '',
         gatewayToken: existingConfig.gateway?.auth?.token || Math.random().toString(36).substring(2, 15),
+        modelId: existingConfig.agents?.defaults?.model?.primary?.split('/').pop() || 'llama-3.3-70b',
 
         // Channels
         channels: {
@@ -37,13 +41,41 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
         ...existingConfig
     });
 
+    const fetchVeniceModels = async (token: string) => {
+        if (!token) return;
+        setFetchingModels(true);
+        setModelError(null);
+        try {
+            const res = await fetch('https://api.venice.ai/api/v1/models', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!res.ok) throw new Error('Failed to fetch models (Unauthorized/Invalid Key)');
+            const data = await res.json();
+            // Venice returns { data: [{ id: "...", ... }] }
+            if (data?.data && Array.isArray(data.data)) {
+                setVeniceModels(data.data);
+                // If current modelId is not in the list, or we want to suggest one
+                if (!config.modelId || !data.data.find((m: any) => m.id === config.modelId)) {
+                    const defaultModel = data.data.find((m: any) => m.id.includes('70b')) || data.data[0];
+                    if (defaultModel) setConfig(prev => ({ ...prev, modelId: defaultModel.id }));
+                }
+            }
+        } catch (err: any) {
+            console.error('Venice model fetch error:', err);
+            setModelError(err.message);
+        } finally {
+            setFetchingModels(false);
+        }
+    };
+
     const steps = [
         { id: 1, title: 'Intelligence Provider', icon: <Zap size={20} /> },
         { id: 2, title: 'Neural Credentials', icon: <Key size={20} /> },
-        { id: 3, title: 'Gateway Security', icon: <Shield size={20} /> },
-        { id: 4, title: 'Communication Channels', icon: <Share2 size={20} /> },
-        { id: 5, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
-    ];
+        { id: 3, title: 'Model Selection', icon: <Cpu size={20} />, hidden: config.provider !== 'venice' },
+        { id: 4, title: 'Gateway Security', icon: <Shield size={20} /> },
+        { id: 5, title: 'Communication Channels', icon: <Share2 size={20} /> },
+        { id: 6, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
+    ].filter(s => !s.hidden);
 
     const handleSave = async () => {
         setSaving(true);
@@ -56,26 +88,28 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
             if (config.channels.whatsapp && config.whatsappToken) channelsConfig.whatsapp = { enabled: true, token: config.whatsappToken };
 
             // Model Configuration
-            let modelId = 'gpt-4o';
+            let modelId = config.modelId || 'gpt-4o';
             let modelName = 'GPT-4o';
             let modelApi = 'openai-responses';
             let baseUrl = 'https://api.openai.com/v1';
 
             if (config.provider === 'anthropic') {
-                modelId = 'claude-3-5-sonnet-latest';
+                modelId = config.modelId || 'claude-3-5-sonnet-latest';
                 modelName = 'Claude 3.5 Sonnet';
                 modelApi = 'anthropic-messages';
                 baseUrl = 'https://api.anthropic.com';
             } else if (config.provider === 'venice') {
-                modelId = 'llama-3.3-70b';
-                modelName = 'Llama 3.3 70B (Venice)';
+                modelId = config.modelId || 'llama-3.3-70b';
+                // Try to find the model name from fetched list
+                const found = veniceModels.find(m => m.id === modelId);
+                modelName = found ? found.name || modelId : 'Llama 3.3 70B (Venice)';
                 modelApi = 'openai-completions';
                 baseUrl = 'https://api.venice.ai/api/v1';
             } else if (config.provider === 'blueprint_shared') {
                 modelId = 'blueprint/shared-model';
                 modelName = 'Blueprint Managed Intelligence';
                 modelApi = 'openai-responses';
-                baseUrl = 'https://api.blueprint.network/v1'; // Fictional internal endpoint
+                baseUrl = 'https://api.blueprint.network/v1';
             }
 
             const finalConfig = {
@@ -255,6 +289,58 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         )}
 
                         {step === 3 && (
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-sm font-medium text-muted-foreground leading-relaxed">
+                                        Select the neural model for **{agent.name}**.
+                                    </p>
+                                    <button
+                                        onClick={() => fetchVeniceModels(config.token)}
+                                        className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1"
+                                    >
+                                        <Zap size={12} /> Refresh List
+                                    </button>
+                                </div>
+
+                                {fetchingModels ? (
+                                    <div className="h-[200px] flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/5 animate-pulse">
+                                        <Loader2 size={32} className="animate-spin text-primary" />
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Synchronizing with Venice Registry...</p>
+                                    </div>
+                                ) : modelError ? (
+                                    <div className="p-6 rounded-3xl border border-red-500/20 bg-red-500/5 text-center space-y-4">
+                                        <p className="text-xs text-red-400 font-medium">{modelError}</p>
+                                        <button
+                                            onClick={() => setStep(2)}
+                                            className="px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-all"
+                                        >
+                                            Check API Key
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {veniceModels.map(m => (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => setConfig({ ...config, modelId: m.id })}
+                                                className={`p-4 rounded-2xl border text-left transition-all flex items-center gap-4 ${config.modelId === m.id ? 'border-primary bg-primary/5' : 'border-white/5 bg-white/5 hover:border-white/10'}`}
+                                            >
+                                                <div className="size-8 rounded-xl bg-white/5 flex items-center justify-center shrink-0">
+                                                    <Cpu size={16} className={config.modelId === m.id ? 'text-primary' : 'text-muted-foreground'} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="font-bold text-xs uppercase tracking-widest mb-0.5">{m.name || m.id}</h4>
+                                                    <p className="text-[10px] text-muted-foreground font-mono opacity-50">{m.id}</p>
+                                                </div>
+                                                {config.modelId === m.id && <Check size={14} className="text-primary" />}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 4 && (
                             <div className="space-y-8">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
                                     The **Gateway Token** allows the Blueprints brain to securely communicate with the OpenClaw container. We've generated a secure one for you.
@@ -279,7 +365,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                             </div>
                         )}
 
-                        {step === 4 && (
+                        {step === 5 && (
                             <div className="space-y-8">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
                                     Where should **{agent.name}** live? Select the communication channels you want to activate.
@@ -313,7 +399,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                             </div>
                         )}
 
-                        {step === 5 && (
+                        {step === 6 && (
                             <div className="space-y-8 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
                                     Configure credentials for your active channels.
@@ -382,15 +468,29 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                     <footer className="mt-12 flex gap-4">
                         {step > 1 && (
                             <button
-                                onClick={() => setStep(step - 1)}
+                                onClick={() => {
+                                    if (step === 4 && config.provider !== 'venice') setStep(2);
+                                    else setStep(step - 1);
+                                }}
                                 className="px-8 py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
                             >
                                 <ArrowLeft size={16} /> Back
                             </button>
                         )}
-                        {step < steps.length ? (
+                        {step < steps[steps.length - 1].id ? (
                             <button
-                                onClick={() => setStep(step + 1)}
+                                onClick={() => {
+                                    if (step === 2) {
+                                        if (config.provider === 'venice') {
+                                            fetchVeniceModels(config.token);
+                                            setStep(3);
+                                        } else {
+                                            setStep(4);
+                                        }
+                                    } else {
+                                        setStep(step + 1);
+                                    }
+                                }}
                                 disabled={step === 2 && config.provider !== 'blueprint_shared' && !config.token}
                                 className="flex-1 py-4 rounded-2xl bg-white text-black hover:opacity-90 active:scale-95 transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
