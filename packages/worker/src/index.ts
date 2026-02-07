@@ -100,6 +100,56 @@ function getConfigHash(config: any): string {
 
 import crypto from 'node:crypto';
 
+// --- Configuration Sanitization ---
+
+function sanitizeConfig(config: any): any {
+    if (!config) return config;
+    const sanitized = JSON.parse(JSON.stringify(config)); // Deep clone
+
+    // 1. Fix Venice model prefixing and API types in providers
+    if (sanitized.models?.providers?.venice) {
+        const venice = sanitized.models.providers.venice;
+
+        // Ensure Venice uses openai-completions
+        if (venice.api === 'openai-responses') {
+            venice.api = 'openai-completions';
+        }
+
+        // Fix double prefixing in models array
+        if (Array.isArray(venice.models)) {
+            venice.models = venice.models.map((m: any) => {
+                if (typeof m.id === 'string' && m.id.startsWith('venice/')) {
+                    return { ...m, id: m.id.replace('venice/', '') };
+                }
+                return m;
+            });
+        }
+    }
+
+    // 2. Fix defaults double prefixing (venice/venice/...)
+    if (sanitized.agents?.defaults?.model?.primary) {
+        const primary = sanitized.agents.defaults.model.primary;
+        if (typeof primary === 'string' && primary.startsWith('venice/venice/')) {
+            sanitized.agents.defaults.model.primary = primary.replace('venice/venice/', 'venice/');
+        }
+    }
+
+    if (sanitized.agents?.defaults?.models) {
+        const models = sanitized.agents.defaults.models;
+        const newModels: any = {};
+        for (const [key, value] of Object.entries(models)) {
+            let newKey = key;
+            if (key.startsWith('venice/venice/')) {
+                newKey = key.replace('venice/venice/', 'venice/');
+            }
+            newModels[newKey] = value;
+        }
+        sanitized.agents.defaults.models = newModels;
+    }
+
+    return sanitized;
+}
+
 async function reconcile() {
     if (isReconciling) return;
     isReconciling = true;
@@ -429,7 +479,8 @@ async function startOpenClawAgent(agentId: string, config: any) {
             }
         };
 
-        const finalConfig = cryptoUtils.decryptConfig(configWithDefaults);
+        const decrypted = cryptoUtils.decryptConfig(configWithDefaults);
+        const finalConfig = sanitizeConfig(decrypted);
 
         logger.info(`Writing OpenClaw config to ${configPath}...`);
         fs.writeFileSync(configPath, JSON.stringify(finalConfig, null, 2));
@@ -620,16 +671,31 @@ async function handleUserMessage(payload: any) {
                     success = true;
                 } catch (err: any) {
                     const isConnRefused = err.code === 'ECONNREFUSED' || err.message?.includes('Unable to connect');
+                    const status = err.response?.status;
+                    const responseData = err.response?.data;
+                    const detailedError = responseData ? (typeof responseData === 'object' ? JSON.stringify(responseData) : responseData) : err.message;
 
-                    if (isConnRefused && attempts < maxAttempts) {
-                        logger.warn(`Message Bus: Connection refused (Agent starting?). Retrying attempt ${attempts}/${maxAttempts} in 1s...`);
-                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    if (isConnRefused) {
+                        if (attempts < maxAttempts) {
+                            logger.warn(`Message Bus: [TRANSPORT ERROR] Connection refused (Agent starting?). Retrying attempt ${attempts}/${maxAttempts} in 1s...`);
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        } else {
+                            logger.error(`Message Bus: [TRANSPORT ERROR] Failed to connect to agent at ${agentUrl} after ${attempts} attempts.`);
+                            agentResponseContent = `Error: Agent unreachable at ${agentUrl}`;
+                            break;
+                        }
                     } else {
-                        const responseData = err.response?.data;
-                        const detailedError = responseData ? (typeof responseData === 'object' ? JSON.stringify(responseData) : responseData) : err.message;
-                        logger.error(`Message Bus: OpenClaw agent error (${err.status || err.message}) on attempt ${attempts}. Details: ${detailedError}`);
-                        agentResponseContent = `Error: Agent returned status ${err.status || err.message}`;
-                        break; // Exit loop on non-connection errors or max attempts
+                        // Classify Gateway vs Provider vs General
+                        let label = '[AGENT ERROR]';
+                        if (status === 403 || status === 401) {
+                            label = '[AGENT GATEWAY ERROR]';
+                        } else if (detailedError.toLowerCase().includes('model') || detailedError.toLowerCase().includes('provider')) {
+                            label = '[PROVIDER ERROR]';
+                        }
+
+                        logger.error(`Message Bus: ${label} (Status: ${status || err.code}) on attempt ${attempts}. Details: ${detailedError}`);
+                        agentResponseContent = `Error: ${detailedError}`;
+                        break; // Exit loop on non-connection errors
                     }
                 }
             }

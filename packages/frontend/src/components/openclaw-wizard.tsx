@@ -67,9 +67,9 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                 modelApi = 'anthropic-messages';
                 baseUrl = 'https://api.anthropic.com';
             } else if (config.provider === 'venice') {
-                modelId = 'venice/llama-3.3-70b';
+                modelId = 'llama-3.3-70b';
                 modelName = 'Llama 3.3 70B (Venice)';
-                modelApi = 'openai-responses'; // Venice is OpenAI compatible
+                modelApi = 'openai-completions';
                 baseUrl = 'https://api.venice.ai/api/v1';
             } else if (config.provider === 'blueprint_shared') {
                 modelId = 'blueprint/shared-model';
