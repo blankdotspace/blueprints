@@ -6,11 +6,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages ./packages
 
-# Install build dependencies for native modules
-RUN apt-get update && apt-get install -y build-essential python3
-
-# Install deps
-RUN bun install
+# Install deps (skip optional native modules like cpu-features)
+RUN bun install --ignore-scripts
 
 # Expose Fastify port
 EXPOSE 3000
