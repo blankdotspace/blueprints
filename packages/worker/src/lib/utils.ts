@@ -3,8 +3,8 @@ import crypto from 'node:crypto';
 /**
  * Generates a consistent container name for an agent.
  */
-export function getAgentContainerName(agentId: string): string {
-    return `agent-${agentId}`;
+export function getAgentContainerName(agentId: string, framework: string = 'agent'): string {
+    return `${framework}-${agentId}`;
 }
 
 /**

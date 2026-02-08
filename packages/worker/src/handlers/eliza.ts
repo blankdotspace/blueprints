@@ -16,7 +16,7 @@ export async function startElizaAgent(agentId: string, config: any) {
             status: 'starting'
         });
 
-        const containerName = getAgentContainerName(agentId);
+        const containerName = getAgentContainerName(agentId, 'eliza');
         const container = await docker.getContainer(containerName);
 
         try {
@@ -81,7 +81,7 @@ export async function startElizaAgent(agentId: string, config: any) {
 }
 
 export async function stopElizaAgent(agentId: string) {
-    const containerName = getAgentContainerName(agentId);
+    const containerName = getAgentContainerName(agentId, 'eliza');
     try {
         const container = await docker.getContainer(containerName);
         await container.stop();
@@ -96,7 +96,7 @@ export async function stopElizaAgent(agentId: string) {
  * Uses ElizaOS CLI tools to reload without container restart.
  */
 export async function hotReloadEliza(agentId: string, config: any) {
-    const containerName = getAgentContainerName(agentId);
+    const containerName = getAgentContainerName(agentId, 'eliza');
     try {
         const decrypted = cryptoUtils.decryptConfig(config);
         const finalConfig = renameKey(decrypted, 'lore', 'knowledge');

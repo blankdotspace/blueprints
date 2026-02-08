@@ -19,7 +19,7 @@ export async function startOpenClawAgent(agentId: string, config: any) {
             status: 'starting'
         });
 
-        const containerName = getAgentContainerName(agentId);
+        const containerName = getAgentContainerName(agentId, 'openclaw');
         const container = await docker.getContainer(containerName);
 
         // Deterministic port mapping: 19000 + (hash of agentId % 1000)
@@ -159,7 +159,7 @@ export async function startOpenClawAgent(agentId: string, config: any) {
 }
 
 export async function stopOpenClawAgent(agentId: string) {
-    const containerName = getAgentContainerName(agentId);
+    const containerName = getAgentContainerName(agentId, 'openclaw');
     try {
         const container = await docker.getContainer(containerName);
         await container.stop();
@@ -175,7 +175,7 @@ export async function stopOpenClawAgent(agentId: string) {
  * This powers the 'Terminal Tool' for OpenBot.
  */
 export async function runTerminalCommand(agentId: string, command: string): Promise<string> {
-    const containerName = getAgentContainerName(agentId);
+    const containerName = getAgentContainerName(agentId, 'openclaw');
     try {
         const exec = await docker.createExec(containerName, {
             AttachStdout: true,

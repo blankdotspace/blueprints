@@ -54,7 +54,7 @@ export async function reconcile() {
             const shouldBeRunning = desired.enabled;
 
             // Verify Docker state for OpenClaw/Eliza agents
-            const containerName = getAgentContainerName(agent.id);
+            const containerName = getAgentContainerName(agent.id, agent.framework);
             const containerIsReallyRunning = runningContainers.has(containerName);
 
             if (isRunning && !containerIsReallyRunning) {
@@ -110,9 +110,25 @@ export async function reconcile() {
     }
 }
 
+export function startStateListener() {
+    logger.info('🛰️  Starting State Change Listener...');
+    supabase
+        .channel('agent_state_changes')
+        .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
+            table: 'agent_desired_state'
+        }, () => {
+            logger.info('🔄 State change detected, triggering reconciliation...');
+            reconcile();
+        })
+        .subscribe();
+}
+
 export function startReconciler() {
     logger.info(`Starting Reconciler (Interval: ${RECONCILE_INTERVAL_MS}ms)...`);
     setInterval(reconcile, RECONCILE_INTERVAL_MS);
     // Initial run
     reconcile();
+    startStateListener();
 }
