@@ -10,7 +10,7 @@
 set -e
 
 OPENCLAW_VERSION="main" # Or a specific tag like "v1.0.0"
-TARGET_DIR="./packages/worker/openclaw"
+TARGET_DIR="./external/openclaw"
 
 echo "🚀 Preparing OpenClaw for packaging..."
 
