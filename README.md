@@ -14,6 +14,16 @@ This project is organized as a monorepo with the following packages:
   - **Tech Stack**: Fastify, Supabase
 - **`packages/worker`**: A worker process for handling background tasks and state synchronization.
 - **`packages/shared`**: Shared code, type definitions, and [Zod](https://zod.dev/) validation schemas used across the monorepo.
+- **`external/`**: External dependencies and agent frameworks.
+
+## Key Features
+
+### 🖥️ Integrated Agent Terminal
+Blueprints features a professional-grade terminal integrated directly into the agent's chat interface. This allows for:
+- **Direct Container Control**: Execute shell commands directly inside the agent's isolated environment.
+- **Dual Routing System**: Seamlessly toggle between **Chat Mode** (Natural Language) and **Terminal Mode** (Shell Commands).
+- **Advanced Diagnostics**: Access logs, file systems, and environment variables without leaving the dashboard.
+- **Slash Commands**: Power users can use the `/terminal <command>` prefix to trigger shell execution even while in Chat Mode.
 
 ## Prerequisites
 
