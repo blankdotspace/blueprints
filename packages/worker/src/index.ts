@@ -15,14 +15,32 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     process.exit(1);
 }
 
-// Global process handling for clean exits
-process.on('SIGTERM', () => {
-    logger.info('SIGTERM received. Cleaning up...');
-    process.exit(0);
+import { createServer } from 'http';
+
+const PORT = process.env.PORT || 5000;
+
+// Simple Health Check Server
+const server = createServer((req, res) => {
+    if (req.url === '/' || req.url === '/health') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', timestamp: new Date().toISOString() }));
+    } else {
+        res.writeHead(404);
+        res.end();
+    }
+});
+
+server.listen(PORT, () => {
+    logger.info(`🏥 Health check server listening on port ${PORT}`);
 });
 
 startReconciler();
 startMessageBus();
-// Note: State listener logic is now integrated into reconciler or remains as a separate concern.
-// However, the original startStateListener was in index.ts. Let's keep it if reconciler doesn't have it.
-// Actually, I'll move startStateListener to reconciler.ts for a truly modular worker.
+
+// Global process handling for clean exits
+process.on('SIGTERM', () => {
+    logger.info('SIGTERM received. Cleaning up...');
+    server.close();
+    process.exit(0);
+});
+
