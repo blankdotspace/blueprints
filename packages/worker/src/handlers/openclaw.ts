@@ -69,6 +69,11 @@ export async function startOpenClawAgent(agentId: string, config: any) {
 
         if (!fs.existsSync(openclawDir)) {
             fs.mkdirSync(openclawDir, { recursive: true });
+            try {
+                fs.chownSync(openclawDir, 1000, 1000); // Ensure node user owns the directory
+            } catch (e) {
+                logger.warn(`Failed to chown openclaw dir: ${e}`);
+            }
         }
 
         // Determine Host path for Docker (Must be absolute)
@@ -105,7 +110,17 @@ export async function startOpenClawAgent(agentId: string, config: any) {
             await supabase.from('agent_desired_state').update({ config: encryptedConfig }).eq('agent_id', agentId);
         }
 
-        fs.writeFileSync(configPath, JSON.stringify(finalConfig, null, 2));
+        // Filter out internal flags before writing to disk
+        const configToWrite = { ...finalConfig };
+        delete configToWrite.blueprints_chat;
+        delete configToWrite.metadata;
+
+        fs.writeFileSync(configPath, JSON.stringify(configToWrite, null, 2));
+        try {
+            fs.chownSync(configPath, 1000, 1000); // Ensure node user owns the config
+        } catch (e) {
+            logger.warn(`Failed to chown config file: ${e}`);
+        }
 
         const env = [
             `OPENCLAW_AGENT_ID=${agentId}`,

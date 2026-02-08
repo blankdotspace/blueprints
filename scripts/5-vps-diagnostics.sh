@@ -147,6 +147,16 @@ fi
 
 pause
 
+echo -e "${BOLD}🗃️  8. Database Integrity Check${NC}"
+echo -e "${BLUE}Checking User Profiles (first 5):${NC}"
+bun run scripts/debug-db.ts profiles '{}' 5 || echo -e "${RED}❌ Failed to query profiles table.${NC}"
+
+echo -e ""
+echo -e "${BLUE}Checking Agent States (first 5):${NC}"
+bun run scripts/debug-db.ts agent_actual_state '{}' 5 || echo -e "${RED}❌ Failed to query agent_actual_state table.${NC}"
+
+pause
+
 echo -e "${BOLD}📜 7. Recent Logs (Last 20 lines)${NC}"
 if [ ! -z "$BACKEND_CONTAINER" ]; then
     echo -e "--- ${BOLD}BACKEND LOGS${NC} ---"
