@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# WARNING:
+# This script is for FIRST VPS SETUP ONLY.
+# Not used in production runtime.
+
 # This script prepares OpenClaw to be packaged with the blueprints worker.
 # It should be run from the root of the blueprints monorepo.
 

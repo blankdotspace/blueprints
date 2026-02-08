@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# WARNING:
+# This script is for FIRST VPS SETUP ONLY.
+# Not used in production runtime.
+
 # Blueprints VPS Quick Setup Script
 # This script installs Docker and prepares the environment for hard isolation.
 
