@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, Loader2, Sparkles, Trash2, Shield, MoreHorizontal } from 'lucide-react';
+import { Send, User, Bot, Loader2, Sparkles, Trash2, Shield, MoreHorizontal, MessageSquare, Terminal } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { createClient } from '@/lib/supabase';
 
@@ -156,11 +156,20 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
         }
     };
 
+    const [isTerminalMode, setIsTerminalMode] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+
     const handleSendMessage = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim() || loading || !session?.access_token) return;
 
-        const userMsgContent = input.trim();
+        let userMsgContent = input.trim();
+
+        // Auto-prefix for terminal mode if not already prefixed
+        if (isTerminalMode && !userMsgContent.startsWith('/terminal ')) {
+            userMsgContent = `/terminal ${userMsgContent}`;
+        }
+
         setInput('');
         setLoading(true);
 
@@ -178,13 +187,23 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                 setLoading(false);
                 throw new Error('Failed to send message');
             }
-            // Note: We don't setMessages or setLoading(false) here because the 
-            // Realtime subscription will handle both the user message insertion 
-            // and the agent response detection.
         } catch (err) {
             console.error(err);
             setLoading(false); // Only clear on error
         }
+    };
+
+    const showHelp = () => {
+        const helpId = Math.random().toString(36).substring(7);
+        const helpMsg: ChatMessage = {
+            id: helpId,
+            sender: 'agent',
+            content: `🖥️ Terminal Mode Help\n\nWhen Active: Every message you send is executed as a shell command inside the agent's container.\n\nCommands:\n• ls - List files\n• pwd - Current directory\n• env - Show environment\n• exit - Switch back to chat\n\nUse the menu to toggle modes.`,
+            created_at: new Date().toISOString()
+        };
+        setMessages(prev => [...prev, helpMsg]);
+        setMenuOpen(false);
+        setTimeout(scrollToBottom, 50);
     };
 
     if (fetching) {
@@ -213,10 +232,57 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Secure Multi-tenant Socket</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <button className="p-2 hover:bg-white/5 rounded-xl transition-colors text-muted-foreground">
+                <div className="flex items-center gap-2 relative">
+                    <div className="flex items-center gap-1 px-3 py-1 bg-white/5 rounded-full border border-white/5 mr-2">
+                        <div className={`size-1.5 rounded-full ${isTerminalMode ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-primary shadow-[0_0_8px_rgba(var(--primary),0.5)]'}`} />
+                        <span className="text-[9px] font-black uppercase tracking-tighter text-white/70">
+                            {isTerminalMode ? 'Terminal Mode' : 'Neutral Mode'}
+                        </span>
+                    </div>
+
+                    <button
+                        onClick={() => setMenuOpen(!menuOpen)}
+                        className={`p-2 hover:bg-white/5 rounded-xl transition-colors ${menuOpen ? 'bg-white/10 text-white' : 'text-muted-foreground'}`}
+                    >
                         <MoreHorizontal size={20} />
                     </button>
+
+                    {menuOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-56 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <button
+                                onClick={() => {
+                                    setIsTerminalMode(!isTerminalMode);
+                                    setMenuOpen(false);
+                                }}
+                                className="w-full flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-[10px] font-black uppercase tracking-widest text-left"
+                            >
+                                <div className="flex items-center gap-3">
+                                    {isTerminalMode ? <MessageSquare size={16} /> : <Terminal size={16} />}
+                                    {isTerminalMode ? 'Switch to Chat' : 'Switch to Terminal'}
+                                </div>
+                                {isTerminalMode && <div className="size-2 rounded-full bg-amber-500" />}
+                            </button>
+
+                            <button
+                                onClick={showHelp}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-[10px] font-black uppercase tracking-widest text-left"
+                            >
+                                <Shield size={16} /> Terminal Help
+                            </button>
+
+                            <div className="h-px bg-white/5 my-2" />
+
+                            <button
+                                onClick={() => {
+                                    setMessages([]);
+                                    setMenuOpen(false);
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors text-[10px] font-black uppercase tracking-widest text-left"
+                            >
+                                <Trash2 size={16} /> Clear Buffer
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -283,8 +349,9 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                         type="text"
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
-                        placeholder="Transmit message..."
-                        className="w-full bg-white/5 border border-white/5 rounded-2xl py-4 pl-6 pr-14 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all font-medium text-sm text-white placeholder:text-muted-foreground/30"
+                        placeholder={isTerminalMode ? "Enter terminal command..." : "Transmit message..."}
+                        className={`w-full bg-white/5 border rounded-2xl py-4 pl-6 pr-14 outline-none transition-all font-medium text-sm text-white placeholder:text-muted-foreground/30 ${isTerminalMode ? 'border-amber-500/30 focus:border-amber-500/50 bg-amber-500/[0.03]' : 'border-white/5 focus:border-primary/50 focus:bg-white/[0.08]'
+                            }`}
                     />
                     <button
                         type="submit"

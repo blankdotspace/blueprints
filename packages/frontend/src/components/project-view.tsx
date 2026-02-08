@@ -122,6 +122,15 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
     const toggleAgent = async (agentId: string, enabled: boolean) => {
         if (!session?.access_token) return;
         try {
+            // Optimistic UI update
+            setAgents(prev => prev.map(a => a.id === agentId ? {
+                ...a,
+                agent_actual_state: {
+                    ...((Array.isArray(a.agent_actual_state) ? a.agent_actual_state[0] : a.agent_actual_state) || {}),
+                    status: enabled ? 'starting' : 'stopping'
+                }
+            } : a));
+
             const res = await fetch(`${API_URL}/agents/${agentId}/config`, {
                 method: 'PATCH',
                 headers: {
@@ -132,11 +141,12 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
             });
             if (!res.ok) throw new Error('Failed to update agent state');
             await fetchProjectAndAgents();
-            setError(null); // Clear on success
-            onDataChange?.();
+            setError(null);
             onDataChange?.();
         } catch (err: any) {
             setError(err.message);
+            // Revert optimistic update on error
+            await fetchProjectAndAgents();
         }
     };
 
@@ -526,7 +536,7 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
 
                                 <div className="flex items-center gap-4 p-2 bg-white/5 rounded-[1.5rem] border border-white/5">
                                     <button
-                                        disabled={actual.status === 'starting'}
+                                        disabled={actual.status === 'starting' || actual.status === 'stopping'}
                                         className={`size-14 rounded-2xl transition-all duration-300 flex items-center justify-center shadow-lg ${desired.enabled
                                             ? 'bg-destructive/10 text-destructive hover:bg-destructive shadow-destructive/20 hover:text-white'
                                             : 'bg-green-500/10 text-green-500 hover:bg-green-500 shadow-green-500/10 hover:text-white'
@@ -538,7 +548,7 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
                                             toggleAgent(agent.id, !desired.enabled);
                                         }}
                                     >
-                                        {actual.status === 'starting' ? <Loader2 size={24} className="animate-spin" /> :
+                                        {actual.status === 'starting' || actual.status === 'stopping' ? <Loader2 size={24} className="animate-spin" /> :
                                             (desired.enabled ? <Square size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />)}
                                     </button>
                                     <button
