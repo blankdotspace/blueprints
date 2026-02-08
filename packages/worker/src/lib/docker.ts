@@ -1,4 +1,5 @@
 import http from 'node:http';
+import { logger } from './logger';
 
 export const docker = {
     async _request(method: string, path: string, body?: any): Promise<any> {
@@ -10,10 +11,13 @@ export const docker = {
                 headers: body ? { 'Content-Type': 'application/json' } : {}
             };
 
+            const startTime = Date.now();
             const req = http.request(options, (res) => {
                 let data = '';
                 res.on('data', (chunk) => data += chunk);
                 res.on('end', () => {
+                    const duration = Date.now() - startTime;
+                    logger.debug(`Docker API: [${method} ${path}] Response ended. Status: ${res.statusCode}. Duration: ${duration}ms. Data length: ${data.length}`);
                     if (res.statusCode && res.statusCode >= 400) {
                         const err = new Error(`Docker API Error (${res.statusCode}): ${data}`);
                         (err as any).status = res.statusCode;
@@ -28,7 +32,15 @@ export const docker = {
                 });
             });
 
-            req.on('error', (err) => reject(err));
+            req.setTimeout(30000, () => {
+                logger.warn(`Docker API Timeout: [${method} ${path}] after 30s. Destroying request.`);
+                req.destroy(new Error('Request Timeout'));
+            });
+
+            req.on('error', (err) => {
+                logger.error(`Docker API Network Error: [${method} ${path}]`, err.message);
+                reject(err);
+            });
             if (body) req.write(JSON.stringify(body));
             req.end();
         });

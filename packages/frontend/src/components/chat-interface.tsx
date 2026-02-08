@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, User, Bot, Loader2, Sparkles, Trash2, Shield, MoreHorizontal, MessageSquare, Terminal } from 'lucide-react';
+import { Send, User, Bot, Loader2, Sparkles, Trash2, Shield, MoreHorizontal, MessageSquare, Terminal, X } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 import { createClient } from '@/lib/supabase';
 
@@ -12,7 +12,7 @@ interface ChatMessage {
     created_at: string;
 }
 
-export default function ChatInterface({ agentId }: { agentId: string }) {
+export default function ChatInterface({ agentId, onClose }: { agentId: string; onClose?: () => void }) {
     const { session } = useAuth();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [input, setInput] = useState('');
@@ -280,6 +280,15 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                             >
                                 <Trash2 size={16} /> Clear Buffer
                             </button>
+
+                            {onClose && (
+                                <button
+                                    onClick={onClose}
+                                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-[10px] font-black uppercase tracking-widest text-left"
+                                >
+                                    <X size={16} /> Close
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -329,10 +338,17 @@ export default function ChatInterface({ agentId }: { agentId: string }) {
                             <div className="p-4 rounded-[1.5rem] bg-white/5 border border-white/5 text-slate-400 rounded-tl-none flex items-center gap-3">
                                 <Loader2 size={14} className="animate-spin text-primary" />
                                 <span className="text-xs font-bold uppercase tracking-widest italic animate-pulse">
-                                    {thinkingTime < 5 ? 'Neural Initializing' :
-                                        thinkingTime < 15 ? `Querying ${agentModel}` :
-                                            thinkingTime < 30 ? 'Synthesizing Thought Matrix' :
-                                                'Heavy Inference in Progress'}
+                                    {isTerminalMode ? (
+                                        thinkingTime < 5 ? 'Console Initializing' :
+                                            thinkingTime < 15 ? 'Executing Shell Command' :
+                                                thinkingTime < 30 ? 'Processing Output Stream' :
+                                                    'Long-Running Process in Progress'
+                                    ) : (
+                                        thinkingTime < 5 ? 'Neural Initializing' :
+                                            thinkingTime < 15 ? `Querying ${agentModel}` :
+                                                thinkingTime < 30 ? 'Synthesizing Thought Matrix' :
+                                                    'Heavy Inference in Progress'
+                                    )}
                                     {thinkingTime > 0 ? ` (${thinkingTime}s)` : '...'}
                                 </span>
                             </div>

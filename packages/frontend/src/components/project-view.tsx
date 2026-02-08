@@ -295,13 +295,10 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-10 animate-in fade-in duration-300">
                     <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-xl" onClick={() => setChattingAgentId(null)} />
                     <div className="relative w-full max-w-5xl animate-in zoom-in-95 slide-in-from-bottom-10 duration-500">
-                        <button
-                            onClick={() => setChattingAgentId(null)}
-                            className="absolute -top-12 right-0 flex items-center gap-2 text-white/50 hover:text-white transition-colors font-black text-[10px] uppercase tracking-widest"
-                        >
-                            <X size={20} /> Close Neural Link
-                        </button>
-                        <ChatInterface agentId={chattingAgentId} />
+                        <ChatInterface
+                            agentId={chattingAgentId}
+                            onClose={() => setChattingAgentId(null)}
+                        />
                     </div>
                 </div>
             )}

@@ -30,12 +30,15 @@ export async function handleUserMessage(payload: any) {
                 return;
             }
 
+            logger.info(`Message Bus: [${id}] Calling runTerminalCommand for ${command}...`);
             const output = await runTerminalCommand(agent_id, command);
+            logger.info(`Message Bus: [${id}] runTerminalCommand finished. Output length: ${output.length}`);
 
             await supabase.from('agent_conversations').insert([{
                 agent_id,
                 user_id,
-                content: `\`\`\`bash\n$ ${command}\n\n${output}\n\`\`\``,
+                // content: `\`\`\`bash\n$ ${command}\n\n${output}\n\`\`\``,
+                content: `$ ${command}\n\n${output}`,
                 sender: 'agent'
             }]);
             return;

@@ -180,10 +180,13 @@ export async function runTerminalCommand(agentId: string, command: string): Prom
         const exec = await docker.createExec(containerName, {
             AttachStdout: true,
             AttachStderr: true,
+            Tty: true,
             Cmd: ['sh', '-c', command]
         });
 
-        const result = await docker.startExec(exec.Id, { Detach: false, Tty: false });
+        logger.info(`OpenClaw: Starting exec ${exec.Id} for command "${command}"...`);
+        const result = await docker.startExec(exec.Id, { Detach: false, Tty: true });
+        logger.info(`OpenClaw: Exec ${exec.Id} finished.`);
         // The startExec result for sh -c is usually the output stream if Attached
         return typeof result === 'string' ? result : JSON.stringify(result);
     } catch (err: any) {
