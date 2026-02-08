@@ -23,7 +23,7 @@ const COOL_NAMES = [
     'Solar Flare', 'Lunar Shadow', 'Onyx Sentinel', 'Cobalt Phantom'
 ];
 
-export default function ProjectView({ projectId, onDataChange }: { projectId: string; onDataChange?: () => void }) {
+export default function ProjectView({ projectId, onDataChange, onUpgrade }: { projectId: string; onDataChange?: () => void; onUpgrade?: () => void }) {
     const { session } = useAuth();
     const [project, setProject] = useState<Project | null>(null);
     const [agents, setAgents] = useState<any[]>([]);
@@ -275,8 +275,8 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
         );
     }
 
-    const limits: Record<string, number> = { 'free': 2, 'pro': 10, 'enterprise': 1000 };
-    const tierLimit = project ? limits[project.tier] || 2 : 2;
+    const limits: Record<string, number> = { 'free': 1, 'pro': 10, 'enterprise': 1000 };
+    const tierLimit = project ? limits[project.tier] || 1 : 1;
     const isAtLimit = agents.length >= tierLimit;
 
     return (
@@ -610,33 +610,18 @@ export default function ProjectView({ projectId, onDataChange }: { projectId: st
                 type="danger"
             />
 
-            {isAtLimit && !isAdding && (
-                <div className="p-8 rounded-[2.5rem] glass-card flex items-center gap-6 group relative overflow-hidden mt-12 bg-primary/5 border-primary/20">
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform">
-                        <Zap size={60} className="text-primary" />
-                    </div>
-                    <div className="size-14 rounded-2xl bg-primary/20 text-primary flex items-center justify-center">
-                        <ShieldCheck size={30} />
-                    </div>
-                    <div className="flex-1">
-                        <p className="text-xl font-bold tracking-tight mb-1 text-primary">Agent limit reached for FREE tier</p>
-                        <p className="text-sm font-medium text-muted-foreground">Upgrade to the **PRO** cluster to scale up to 10 autonomous agents.</p>
-                    </div>
-                    <button className="px-6 py-3 bg-primary text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-primary/20">Upgrade Now</button>
-                </div>
-            )}
 
             <ConfirmationModal
                 isOpen={isLimitModalOpen}
                 onClose={() => setIsLimitModalOpen(false)}
                 onConfirm={() => {
                     setIsLimitModalOpen(false);
-                    // Proactive: trigger upgrade modal or just close? 
-                    // User said "display the message as alert modal as the Execute Final Termination?"
+                    onUpgrade?.();
                 }}
-                title="Agent Limit Reached"
-                message="You have reached the maximum number of agents for the FREE tier (2 agents). Please upgrade to PRO to deploy more intelligence."
-                confirmText="Understood"
+                title="Architecture Limit Reached"
+                message={`You have reached the maximum number of agents for the FREE tier (${tierLimit} agent). Please upgrade to PRO to deploy more intelligence.`}
+                confirmText="Upgrade"
+                cancelText="Understood"
                 type="warning"
             />
         </div>

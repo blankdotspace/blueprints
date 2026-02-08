@@ -6,13 +6,16 @@ import { useRouter } from 'next/navigation';
 import {
     LayoutDashboard, Users, Bot, Zap, Shield,
     ArrowLeft, Loader2, RefreshCw, AlertTriangle,
-    TrendingUp, Activity, Terminal
+    TrendingUp, Activity, Terminal, MessageSquare, Star,
+    CreditCard, Wallet, Clock, Rocket, BarChart3
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function AdminDashboard() {
     const [user, setUser] = useState<any>(null);
     const [stats, setStats] = useState<any>(null);
+    const [feedbacks, setFeedbacks] = useState<any[]>([]);
+    const [upgradeFeedbacks, setUpgradeFeedbacks] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
@@ -24,7 +27,10 @@ export default function AdminDashboard() {
 
     const fetchStats = async (token: string) => {
         try {
-            const res = await fetch(`${API_URL}/admin/stats`, {
+            const timestamp = Date.now();
+            console.log(`AdminDashboard: Fetching stats (ts: ${timestamp})...`);
+
+            const res = await fetch(`${API_URL}/admin/stats?t=${timestamp}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (!res.ok) {
@@ -32,8 +38,24 @@ export default function AdminDashboard() {
                 throw new Error('Failed to fetch system stats');
             }
             const data = await res.json();
+            console.log('AdminDashboard: Stats received ->', data);
             setStats(data);
+
+            const fRes = await fetch(`${API_URL}/admin/feedback?t=${timestamp}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (fRes.ok) {
+                setFeedbacks(await fRes.json());
+            }
+
+            const uRes = await fetch(`${API_URL}/admin/upgrade-feedback?t=${timestamp}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (uRes.ok) {
+                setUpgradeFeedbacks(await uRes.json());
+            }
         } catch (err: any) {
+            console.error('AdminDashboard Error:', err);
             setError(err.message);
         } finally {
             setLoading(false);
@@ -97,7 +119,7 @@ export default function AdminDashboard() {
         );
     }
 
-    const StatCard = ({ title, value, icon: Icon, trend, color }: any) => (
+    const StatCard = ({ title, value, icon: Icon, color }: any) => (
         <div className="glass-card rounded-[2rem] p-8 border border-white/5 relative overflow-hidden group">
             <div className={`absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
                 <Icon size={80} />
@@ -108,14 +130,7 @@ export default function AdminDashboard() {
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{title}</span>
             </div>
-            <div className="flex items-end gap-3">
-                <h4 className="text-4xl font-black tracking-tighter">{value}</h4>
-                {trend && (
-                    <div className="flex items-center gap-1 text-green-500 text-xs font-bold mb-1">
-                        <TrendingUp size={14} /> {trend}
-                    </div>
-                )}
-            </div>
+            <h4 className="text-4xl font-black tracking-tighter">{value}</h4>
         </div>
     );
 
@@ -150,58 +165,49 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     <StatCard title="Total Citizens" value={stats?.users} icon={Users} color="text-blue-400" />
                     <StatCard title="Active Clusters" value={stats?.projects} icon={LayoutDashboard} color="text-purple-400" />
+                    <StatCard title="Upgrade Wave" value={stats?.upgradeCount} icon={Rocket} color="text-green-400" />
                     <StatCard title="Total Agents" value={stats?.agents} icon={Bot} color="text-primary" />
-                    <StatCard title="Failing Systems" value={stats?.failingAgents} icon={AlertTriangle} color="text-destructive" />
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
                     {/* System Monitoring */}
                     <div className="lg:col-span-2 glass-card rounded-[3rem] p-10 border border-white/5">
                         <div className="flex items-center justify-between mb-8">
                             <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 italic">
-                                <Activity className="text-primary" /> System Heartbeat
+                                <Activity className="text-primary" size={24} /> System Heartbeat
                             </h3>
-                            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">
-                                Latency: 24ms
-                            </div>
+                            <div className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Latency: 24ms</div>
                         </div>
 
-                        <div className="space-y-6">
-                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-colors">
+                        <div className="space-y-6 text-white">
+                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-primary/30 transition-colors cursor-default">
                                 <div className="flex items-center gap-6">
-                                    <div className="size-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500">
-                                        <Zap size={24} />
-                                    </div>
+                                    <div className="size-12 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500"><Zap size={24} /></div>
                                     <div>
                                         <h4 className="font-bold text-sm">Agent Orchestrator</h4>
                                         <p className="text-xs text-muted-foreground">Worker process handling lifecycle events</p>
                                     </div>
                                 </div>
-                                <span className="px-4 py-1.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)]">Healthy</span>
+                                <span className="px-4 py-1.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest">Healthy</span>
                             </div>
 
-                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between group hover:border-primary/30 transition-colors">
+                            <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between hover:border-primary/30 transition-colors cursor-default">
                                 <div className="flex items-center gap-6">
-                                    <div className="size-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                        <Shield size={24} />
-                                    </div>
+                                    <div className="size-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500"><Shield size={24} /></div>
                                     <div>
                                         <h4 className="font-bold text-sm">Neural Gateway</h4>
                                         <p className="text-xs text-muted-foreground">Auth and RLS enforcement layer</p>
                                     </div>
                                 </div>
-                                <span className="px-4 py-1.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(34,197,94,0.2)]">Healthy</span>
+                                <span className="px-4 py-1.5 rounded-full bg-green-500/10 text-green-500 text-[10px] font-black uppercase tracking-widest">Healthy</span>
                             </div>
                         </div>
                     </div>
 
-                    {/* Quick Actions */}
+                    {/* Command Center */}
                     <div className="glass-card rounded-[3rem] p-10 border border-white/5 flex flex-col">
-                        <h3 className="text-2xl font-black tracking-tight mb-8 italic">
-                            Command Center
-                        </h3>
-
-                        <div className="space-y-4 flex-1">
+                        <h3 className="text-2xl font-black tracking-tight mb-8 italic">Command Center</h3>
+                        <div className="space-y-4 flex-1 text-white">
                             <button
                                 onClick={handleDeploySuperAgent}
                                 disabled={isDeploying}
@@ -215,13 +221,9 @@ export default function AdminDashboard() {
                                         </span>
                                     </div>
                                     {isDeploying && <Loader2 size={16} className="animate-spin text-primary" />}
-                                    {deploySuccess && <Activity size={16} className="text-green-500 animate-pulse" />}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground font-medium">
-                                    {deploySuccess ? 'Administrative intelligence active in root mode.' : 'Initialize root-level administrative intelligence.'}
-                                </p>
+                                <p className="text-[10px] text-muted-foreground font-medium">Initialize root-level administrative intelligence.</p>
                             </button>
-
                             <button className="w-full p-6 rounded-2xl bg-white/5 border border-white/5 text-left hover:bg-white/10 transition-all group">
                                 <div className="flex items-center gap-3 mb-2">
                                     <Users size={18} className="text-muted-foreground group-hover:text-white transition-colors" />
@@ -230,16 +232,128 @@ export default function AdminDashboard() {
                                 <p className="text-[10px] text-muted-foreground font-medium">Review and modify user security tiers.</p>
                             </button>
                         </div>
-
                         <div className="mt-8 p-6 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive">
                             <div className="flex items-center gap-3 mb-2">
-                                <AlertTriangle size={18} />
-                                <span className="font-black text-xs uppercase tracking-widest">Panic Protocol</span>
+                                <AlertTriangle size={18} /><span className="font-black text-xs uppercase tracking-widest">Panic Protocol</span>
                             </div>
-                            <button className="w-full py-2 bg-destructive text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
-                                Emergency Stop All Agents
-                            </button>
+                            <button className="w-full py-2 bg-destructive text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">Emergency Stop All Agents</button>
                         </div>
+                    </div>
+                </div>
+
+                {/* Section 2: Leaderboards & Analytics */}
+                <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+                    {/* Payment Leaderboard */}
+                    <div className="glass-card rounded-[3rem] p-10 border border-white/5">
+                        <h3 className="text-xl font-black tracking-tight flex items-center gap-3 italic mb-8 uppercase text-blue-400">
+                            <BarChart3 size={20} /> Protocol Rank
+                        </h3>
+                        <div className="space-y-4">
+                            {Object.entries(stats?.paymentStats || {}).sort((a: any, b: any) => b[1] - a[1]).map(([method, count], i) => (
+                                <div key={method} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 group hover:border-blue-400/30 transition-colors">
+                                    <div className="flex items-center gap-4">
+                                        <span className={`text-xs font-black ${i === 0 ? 'text-amber-400' : 'text-muted-foreground'}`}>#0{i + 1}</span>
+                                        <span className="text-xs font-bold text-white uppercase tracking-widest">{method}</span>
+                                    </div>
+                                    <span className="text-xs font-black text-blue-400">{count as number}</span>
+                                </div>
+                            ))}
+                            {Object.keys(stats?.paymentStats || {}).length === 0 && (
+                                <p className="text-[10px] text-muted-foreground italic text-center py-4">Waiting for transmissions...</p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Sentiment Feed (Wider) */}
+                    <div className="lg:col-span-3 glass-card rounded-[3rem] p-10 border border-white/5">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 italic uppercase text-amber-400">
+                                <MessageSquare size={24} /> Sentiment Feed
+                            </h3>
+                            <div className="px-3 py-1 bg-amber-400/10 border border-amber-400/20 rounded-full text-[10px] font-black text-amber-500 uppercase tracking-widest">Grade: {stats?.averageRating || 0}/5</div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+                            {feedbacks.length === 0 ? (
+                                <div className="col-span-full p-12 text-center text-muted-foreground border border-dashed border-white/5 rounded-3xl italic">No neural transmissions received yet.</div>
+                            ) : (
+                                feedbacks.map((f: any) => (
+                                    <div key={f.id} className="p-6 rounded-2xl bg-white/[0.02] border border-white/5 hover:border-white/10 transition-colors">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary font-bold text-xs uppercase">{f.user?.email?.[0] || 'U'}</div>
+                                                <div>
+                                                    <p className="text-xs font-bold text-white uppercase">{f.user?.email || 'Anonymous'}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{new Date(f.created_at).toLocaleDateString()}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1">
+                                                {[1, 2, 3, 4, 5].map(s => (
+                                                    <Star key={s} size={12} className={s <= f.rating ? 'text-amber-400 fill-amber-400' : 'text-white/10'} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <p className="text-sm font-medium text-muted-foreground leading-relaxed italic">"{f.comment || 'No comment provided.'}"</p>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 3: Detailed Upgrade Logs */}
+                <div className="glass-card rounded-[3rem] p-10 border border-white/5">
+                    <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 italic mb-8 uppercase text-green-400">
+                        <Rocket size={24} /> Upgrade Archive
+                    </h3>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
+                        {upgradeFeedbacks.length === 0 ? (
+                            <div className="col-span-full p-12 text-center text-muted-foreground border border-dashed border-white/5 rounded-3xl italic">No upgrade transmissions yet.</div>
+                        ) : (
+                            upgradeFeedbacks.map((u: any) => (
+                                <div key={u.id} className="p-8 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:border-green-400/20 transition-all group">
+                                    <div className="flex justify-between items-start mb-6">
+                                        <div>
+                                            <p className="text-[10px] font-black text-white uppercase tracking-widest mb-1">{u.user?.email || 'Anonymous'}</p>
+                                            <p className="text-[8px] text-muted-foreground font-mono italic">{new Date(u.created_at).toLocaleString()}</p>
+                                        </div>
+                                        <div className="px-3 py-1 rounded-lg bg-primary/10 border border-primary/20 text-[10px] font-black uppercase text-primary tracking-widest">{u.plan_selected}</div>
+                                    </div>
+
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/5 mb-6 group-hover:bg-white/10 transition-colors">
+                                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-[.2em] mb-2">Protocol Link</p>
+                                        <div className="flex items-center gap-3">
+                                            <div className="size-8 rounded-lg bg-green-400/10 flex items-center justify-center text-green-400 shadow-[0_0_10px_rgba(74,222,128,0.2)]">
+                                                <Wallet size={16} />
+                                            </div>
+                                            <span className="text-xs font-black text-white px-2 tracking-widest">{u.payment_method?.toUpperCase()}</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 mb-6">
+                                        <p className="text-[8px] font-black uppercase text-muted-foreground tracking-[.2em]">Matrix Feedback</p>
+                                        <div className="grid grid-cols-1 gap-1">
+                                            {u.desired_plans?.map((dp: any, i: number) => dp.plan && (
+                                                <div key={i} className="flex justify-between items-center p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                                    <span className="text-[10px] font-bold text-white/50">{dp.plan}</span>
+                                                    <span className={`text-[9px] font-black uppercase tracking-widest ${dp.feedback === 'good' ? 'text-green-400 shadow-[0_0_5px_rgba(74,222,128,0.3)]' :
+                                                        dp.feedback === 'high' ? 'text-destructive' : 'text-blue-400'
+                                                        }`}>{dp.feedback}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-6 border-t border-white/5">
+                                        <div className="flex gap-1 mb-3">
+                                            {[1, 2, 3, 4, 5].map(s => <Star key={s} size={12} className={s <= u.rating ? 'text-amber-400 fill-amber-400' : 'text-white/10'} />)}
+                                        </div>
+                                        <p className="text-xs text-muted-foreground leading-relaxed italic">"{u.comments || 'No comment provided.'}"</p>
+                                    </div>
+                                </div>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>

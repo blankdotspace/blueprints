@@ -8,6 +8,8 @@ import adminPlugin from './plugins/admin';
 import projectRoutes from './routes/projects';
 import agentRoutes from './routes/agents';
 import adminRoutes from './routes/admin';
+import feedbackRoutes from './routes/feedback';
+import upgradeFeedbackRoutes from './routes/upgrade-feedback';
 
 const fastify = Fastify({
     disableRequestLogging: true, // Reduce noise: standard incoming/completed logs moved to debug
@@ -91,6 +93,8 @@ await fastify.register(async (authenticatedInstance) => {
     authenticatedInstance.register(projectRoutes, { prefix: '/projects' });
     authenticatedInstance.register(agentRoutes, { prefix: '/agents' });
     authenticatedInstance.register(adminRoutes, { prefix: '/admin' });
+    authenticatedInstance.register(feedbackRoutes, { prefix: '/feedback' });
+    authenticatedInstance.register(upgradeFeedbackRoutes, { prefix: '/upgrade-feedback' });
 });
 
 const start = async () => {

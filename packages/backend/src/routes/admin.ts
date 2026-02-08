@@ -22,20 +22,106 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             .from('agent_actual_state')
             .select('status');
 
+        const { data: feedbackData } = await fastify.supabase
+            .from('feedback')
+            .select('rating');
+
+        const { data: upgradeData, error: uError } = await fastify.supabase
+            .from('upgrade_feedback')
+            .select('payment_method');
+
+        if (uError) {
+            fastify.log.error({ uError }, 'AdminDashboard: Failed to fetch payment method data');
+        }
+
+        const { count: upgradeCount } = await fastify.supabase
+            .from('upgrade_feedback')
+            .select('*', { count: 'exact', head: true });
+
+        const paymentStats: Record<string, number> = {};
+        if (upgradeData) {
+            upgradeData.forEach((curr: any) => {
+                const method = curr.payment_method || 'unselected';
+                paymentStats[method] = (paymentStats[method] || 0) + 1;
+            });
+        }
+
         const runningCount = activeAgents?.filter(a => a.status === 'running').length || 0;
         const errorCount = activeAgents?.filter(a => a.status === 'error').length || 0;
 
-        return {
+        const averageRating = feedbackData && feedbackData.length > 0
+            ? feedbackData.reduce((acc, f) => acc + f.rating, 0) / feedbackData.length
+            : 0;
+
+        const stats = {
             users: userCount || 0,
             projects: projectCount || 0,
             agents: agentCount || 0,
             runningAgents: runningCount,
             failingAgents: errorCount,
+            averageRating: Number(averageRating.toFixed(1)),
+            feedbackCount: feedbackData?.length || 0,
+            upgradeCount: upgradeCount || 0,
+            paymentStats,
             timestamp: new Date().toISOString()
         };
+
+        fastify.log.info({ stats }, 'AdminDashboard: Stats response generated');
+        return stats;
     });
 
-    // 2. All agents list (Admin view)
+    // 2. Feedback listing (Admin only)
+    fastify.get('/feedback', async () => {
+        // Fetch feedbacks first
+        const { data: feedbacks, error: fError } = await fastify.supabase
+            .from('feedback')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (fError) throw fError;
+        if (!feedbacks || feedbacks.length === 0) return [];
+
+        // Fetch profiles for these users
+        const userIds = Array.from(new Set(feedbacks.map(f => f.user_id)));
+        const { data: profiles, error: pError } = await fastify.supabase
+            .from('profiles')
+            .select('id, email')
+            .in('id', userIds);
+
+        if (pError) fastify.log.error(pError, 'Failed to fetch profiles for feedback');
+
+        // Merge
+        return feedbacks.map(f => ({
+            ...f,
+            user: profiles?.find(p => p.id === f.user_id) || { email: 'Unknown' }
+        }));
+    });
+
+    // 3. Upgrade Feedback listing (Admin only)
+    fastify.get('/upgrade-feedback', async () => {
+        const { data: upgrades, error: uError } = await fastify.supabase
+            .from('upgrade_feedback')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (uError) throw uError;
+        if (!upgrades || upgrades.length === 0) return [];
+
+        const userIds = Array.from(new Set(upgrades.map(u => u.user_id)));
+        const { data: profiles, error: pError } = await fastify.supabase
+            .from('profiles')
+            .select('id, email')
+            .in('id', userIds);
+
+        if (pError) fastify.log.error(pError, 'Failed to fetch profiles for upgrade feedback');
+
+        return upgrades.map(u => ({
+            ...u,
+            user: profiles?.find(p => p.id === u.user_id) || { email: 'Unknown' }
+        }));
+    });
+
+    // 4. All agents list (Admin view)
     fastify.get('/agents', async () => {
         const { data, error } = await fastify.supabase
             .from('agents')
@@ -75,7 +161,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         const { data: agent, error: agentError } = await fastify.supabase
             .from('agents')
             .insert([{
-                project_id: project.id,
+                project_id: (project as any).id,
                 name: 'Super Auditor',
                 framework: 'openclaw',
             }])
@@ -104,8 +190,6 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     fastify.get('/system', { preHandler: [fastify.superAdminGuard] }, async () => {
-        // This could eventually call docker.listContainers() via worker proxy or similar
-        // For now, return a placeholder or basic info
         return {
             message: 'System management interface active',
             dockerSupported: true

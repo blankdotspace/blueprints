@@ -298,8 +298,8 @@ export default function Marketplace({ projectId }: { projectId: string }) {
                             key={fw.id}
                             onClick={() => setFrameworkFilter(fw.id as any)}
                             className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${frameworkFilter === fw.id
-                                    ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                                    : 'text-muted-foreground hover:text-white hover:bg-white/5'
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                : 'text-muted-foreground hover:text-white hover:bg-white/5'
                                 }`}
                         >
                             {fw.label}
@@ -309,7 +309,7 @@ export default function Marketplace({ projectId }: { projectId: string }) {
             </div>
 
             {/* Toolbar */}
-            <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
+            <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
                 <div className="relative w-full md:w-96 group">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
                     <input

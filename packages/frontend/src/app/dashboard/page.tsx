@@ -4,16 +4,18 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, ShoppingBag, Settings, LogOut, Bot, Sparkles, Zap, ChevronRight, Menu, X, Plus, Loader2, Trash2, Check, Shield } from 'lucide-react';
+import { LayoutDashboard, ShoppingBag, Settings, LogOut, Bot, Sparkles, Zap, ChevronRight, Menu, X, Plus, Loader2, Trash2, Check, Shield, MessageSquare } from 'lucide-react';
 import ProjectView from '@/components/project-view';
 import Marketplace from '@/components/marketplace';
 import ConfirmationModal from '@/components/confirmation-modal';
 import SettingsView from '@/components/settings-view';
+import UpgradeWizard from '@/components/upgrade-wizard';
+import FeedbackView from '@/components/feedback-view';
 
 export default function DashboardPage() {
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<string | null>(null);
-    const [view, setView] = useState<'projects' | 'marketplace' | 'settings'>('projects');
+    const [view, setView] = useState<'projects' | 'marketplace' | 'settings' | 'feedback'>('projects');
     const [selectedProject, setSelectedProject] = useState<string | null>(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false); // Default closed for mobile
     const [projects, setProjects] = useState<any[]>([]);
@@ -78,6 +80,7 @@ export default function DashboardPage() {
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
+    const [selectedFramework, setSelectedFramework] = useState<'eliza' | 'openclaw' | 'mixed'>('eliza');
     const [isCreating, setIsCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
 
@@ -89,6 +92,7 @@ export default function DashboardPage() {
 
     // Upgrade Modal State
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+    const [applyingPlan, setApplyingPlan] = useState<'Pro' | 'Enterprise' | null>(null);
 
     // Random Hints
     const [clusterHint, setClusterHint] = useState('e.g. Sales Unit B');
@@ -237,6 +241,12 @@ export default function DashboardPage() {
                             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Infrastructure</span>
                         </div>
                         <NavItem icon={Settings} label="Settings" id="settings" />
+                        <div className="relative">
+                            <NavItem icon={MessageSquare} label="Feedback" id="feedback" />
+                            <div className="absolute top-3.5 right-10 pointer-events-none">
+                                <span className="px-1.5 py-0.5 rounded-md bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest border border-primary/30">Beta</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div className="mt-auto space-y-4">
@@ -277,6 +287,7 @@ export default function DashboardPage() {
                             {view === 'projects' && (selectedProject ? 'Cluster Overview' : 'Agents Cluster')}
                             {view === 'marketplace' && 'Agents Blueprints'}
                             {view === 'settings' && 'System Parameters'}
+                            {view === 'feedback' && 'Neural Feedback'}
                             <Sparkles size={16} className="text-amber-400 animate-pulse" />
                         </h2>
                     </div>
@@ -347,6 +358,7 @@ export default function DashboardPage() {
                                                 const { data: { session } } = await supabase.auth.getSession();
                                                 if (session?.access_token) fetchProjects(session.access_token);
                                             }}
+                                            onUpgrade={() => setIsUpgradeModalOpen(true)}
                                         />
                                     </div>
                                 );
@@ -402,6 +414,8 @@ export default function DashboardPage() {
                             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                                 <Marketplace projectId={selectedProject || 'default'} />
                             </div>
+                        ) : view === 'feedback' ? (
+                            <FeedbackView />
                         ) : (
                             <div className="h-full">
                                 <SettingsView user={user} />
@@ -446,6 +460,39 @@ export default function DashboardPage() {
                                         className="w-full rounded-2xl border border-white/5 bg-white/5 px-6 py-4 focus:border-primary/50 focus:bg-white/[0.08] outline-none transition-all duration-300 placeholder:text-muted-foreground/30 font-bold"
                                         autoFocus
                                     />
+                                </div>
+
+                                <div className="space-y-3">
+                                    <label className="block text-sm font-bold text-muted-foreground ml-1 uppercase tracking-widest transition-colors group-focus-within:text-primary">
+                                        Agent Framework
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {[
+                                            { id: 'eliza', name: 'Eliza', icon: Bot, desc: 'Character agents' },
+                                            { id: 'openclaw', name: 'OpenClaw', icon: Sparkles, desc: 'Collective Intel' },
+                                            { id: 'mixed', name: 'Mixed', icon: Zap, desc: 'Coming Soon', disabled: true }
+                                        ].map((fw) => (
+                                            <button
+                                                key={fw.id}
+                                                type="button"
+                                                disabled={fw.disabled}
+                                                onClick={() => setSelectedFramework(fw.id as any)}
+                                                className={`p-4 rounded-2xl border transition-all text-left relative overflow-hidden group ${fw.disabled
+                                                    ? 'opacity-40 grayscale cursor-not-allowed border-white/5 bg-white/5'
+                                                    : selectedFramework === fw.id
+                                                        ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
+                                                        : 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]'
+                                                    }`}
+                                            >
+                                                <fw.icon size={18} className={`mb-2 ${selectedFramework === fw.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                <div className="font-black text-[10px] uppercase tracking-wider mb-0.5">{fw.name}</div>
+                                                <div className="text-[10px] text-muted-foreground leading-tight font-medium">{fw.desc}</div>
+                                                {selectedFramework === fw.id && !fw.disabled && (
+                                                    <div className="absolute top-2 right-2 size-1.5 rounded-full bg-primary animate-pulse" />
+                                                )}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 {createError && (
@@ -510,46 +557,66 @@ export default function DashboardPage() {
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                {/* Starter */}
-                                <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] flex flex-col relative overflow-hidden group hover:border-white/10 transition-colors">
-                                    <h3 className="text-xl font-bold mb-2">Starter</h3>
-                                    <div className="mb-6"><span className="text-3xl font-black">Free</span></div>
-                                    <ul className="space-y-4 mb-8 flex-1">
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> 1 Active Agent</li>
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> Shared Compute</li>
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> Community Support</li>
-                                    </ul>
-                                    <button className="w-full py-4 rounded-xl border border-white/10 font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-colors">Current Plan</button>
-                                </div>
+                            {applyingPlan ? (
+                                <UpgradeWizard
+                                    plan={applyingPlan}
+                                    onClose={() => {
+                                        setIsUpgradeModalOpen(false);
+                                        setApplyingPlan(null);
+                                    }}
+                                />
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {/* Starter */}
+                                    <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] flex flex-col relative overflow-hidden group hover:border-white/10 transition-colors">
+                                        <h3 className="text-xl font-bold mb-2">Starter</h3>
+                                        <div className="mb-6"><span className="text-3xl font-black">Free</span></div>
+                                        <ul className="space-y-4 mb-8 flex-1">
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> 1 Active Agent</li>
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> Shared Compute</li>
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Check size={16} className="text-white" /> Community Support</li>
+                                        </ul>
+                                        <button className="w-full py-4 rounded-xl border border-white/10 font-bold text-xs uppercase tracking-widest hover:bg-white/5 transition-colors">Current Plan</button>
+                                    </div>
 
-                                {/* Pro */}
-                                <div className="p-8 rounded-[2rem] border border-primary/50 bg-primary/5 flex flex-col relative overflow-hidden ring-4 ring-primary/10">
-                                    <div className="absolute top-0 right-0 bg-primary px-4 py-1 rounded-bl-xl text-[10px] font-black uppercase tracking-widest text-white">Popular</div>
-                                    <h3 className="text-xl font-bold mb-2 text-white">Pro</h3>
-                                    <div className="mb-6"><span className="text-3xl font-black">$29</span><span className="text-sm font-bold text-muted-foreground">/mo</span></div>
-                                    <ul className="space-y-4 mb-8 flex-1">
-                                        <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> 10 Active Agents</li>
-                                        <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> 4GB Neural Memory</li>
-                                        <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> Priority Processing</li>
-                                        <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> Email Support</li>
-                                    </ul>
-                                    <button className="w-full py-4 rounded-xl bg-primary text-white font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20">Apply Now</button>
-                                </div>
+                                    {/* Pro */}
+                                    <div className="p-8 rounded-[2rem] border border-primary/50 bg-primary/5 flex flex-col relative overflow-hidden ring-4 ring-primary/10">
+                                        <div className="absolute top-0 right-0 bg-primary px-4 py-1 rounded-bl-xl text-[10px] font-black uppercase tracking-widest text-white">Popular</div>
+                                        <h3 className="text-xl font-bold mb-2 text-white">Pro</h3>
+                                        <div className="mb-6"><span className="text-3xl font-black">$29</span><span className="text-sm font-bold text-muted-foreground">/mo</span></div>
+                                        <ul className="space-y-4 mb-8 flex-1">
+                                            <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> 10 Active Agents</li>
+                                            <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> 4GB Neural Memory</li>
+                                            <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> Priority Processing</li>
+                                            <li className="flex items-center gap-3 text-sm font-bold text-white"><Check size={16} className="text-primary" /> Email Support</li>
+                                        </ul>
+                                        <button
+                                            onClick={() => setApplyingPlan('Pro')}
+                                            className="w-full py-4 rounded-xl bg-primary text-white font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20"
+                                        >
+                                            Apply Now
+                                        </button>
+                                    </div>
 
-                                {/* Enterprise */}
-                                <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] flex flex-col relative overflow-hidden group hover:border-purple-500/30 transition-colors">
-                                    <h3 className="text-xl font-bold mb-2">Enterprise</h3>
-                                    <div className="mb-6"><span className="text-3xl font-black">Custom</span></div>
-                                    <ul className="space-y-4 mb-8 flex-1">
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Unlimited Agents</li>
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Isolated VPC</li>
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Custom Models</li>
-                                        <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> 24/7 SLA</li>
-                                    </ul>
-                                    <button className="w-full py-4 rounded-xl border border-white/10 font-bold text-xs uppercase tracking-widest hover:bg-white text-black transition-all">Contact Sales</button>
+                                    {/* Enterprise */}
+                                    <div className="p-8 rounded-[2rem] border border-white/5 bg-white/[0.02] flex flex-col relative overflow-hidden group hover:border-purple-500/30 transition-colors">
+                                        <h3 className="text-xl font-bold mb-2">Enterprise</h3>
+                                        <div className="mb-6"><span className="text-3xl font-black">Custom</span></div>
+                                        <ul className="space-y-4 mb-8 flex-1">
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Unlimited Agents</li>
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Isolated VPC</li>
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> Custom Models</li>
+                                            <li className="flex items-center gap-3 text-sm font-medium text-muted-foreground"><Shield size={16} className="text-purple-400" /> 24/7 SLA</li>
+                                        </ul>
+                                        <button
+                                            onClick={() => setApplyingPlan('Enterprise')}
+                                            className="w-full py-4 rounded-xl border border-white/10 font-bold text-xs uppercase tracking-widest hover:bg-white text-black transition-all"
+                                        >
+                                            Contact Sales
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             <div className="mt-8 text-center">
                                 <button onClick={() => setIsUpgradeModalOpen(false)} className="text-xs font-bold uppercase tracking-widest text-muted-foreground hover:text-white transition-colors">No thanks, maybe later</button>

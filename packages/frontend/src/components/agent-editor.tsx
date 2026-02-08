@@ -27,6 +27,10 @@ export default function AgentEditor({ agent, actual, onSave, onClose }: AgentEdi
     const [saving, setSaving] = useState(false);
     const [jsonError, setJsonError] = useState<string | null>(null);
 
+    const [isAddingSecret, setIsAddingSecret] = useState(false);
+    const [newSecretKey, setNewSecretKey] = useState('');
+    const [newSecretValue, setNewSecretValue] = useState('');
+
     const logs = [
         `[${new Date().toISOString()}] INITIALIZING_NEURAL_LINK...`,
         `[${new Date().toISOString()}] SYNCING_DESIRED_STATE...`,
@@ -398,7 +402,7 @@ export default function AgentEditor({ agent, actual, onSave, onClose }: AgentEdi
                                 </div>
                             )}
                             {activeTab === 'secrets' && (
-                                <div className="space-y-8 max-w-2xl mx-auto">
+                                <div className="space-y-8 max-w-2xl mx-auto pb-10">
                                     <div className="flex flex-col items-center text-center gap-4 mb-10">
                                         <div className="size-20 rounded-[2rem] bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
                                             <Shield size={40} className="text-indigo-400" />
@@ -435,19 +439,60 @@ export default function AgentEditor({ agent, actual, onSave, onClose }: AgentEdi
                                                 />
                                             </div>
                                         ))}
-                                        <button
-                                            onClick={() => {
-                                                const key = prompt('Enter secret key (e.g. OPENAI_API_KEY):');
-                                                if (key) {
-                                                    const secrets = { ...config.settings?.secrets, [key]: '' };
-                                                    updateField('settings', { ...config.settings, secrets });
-                                                }
-                                            }}
-                                            className="w-full py-4 rounded-2xl border border-dashed border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
-                                        >
-                                            <Plus size={16} className="text-muted-foreground group-hover:text-indigo-400" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-indigo-400">Add New Secret</span>
-                                        </button>
+
+                                        {isAddingSecret ? (
+                                            <div className="p-8 rounded-[2.5rem] bg-indigo-500/5 border border-indigo-500/20 animate-in fade-in zoom-in-95 duration-300">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400">New Secret Matrix</h4>
+                                                    <button onClick={() => setIsAddingSecret(false)} className="text-muted-foreground/40 hover:text-white transition-colors">
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Key</label>
+                                                        <input
+                                                            value={newSecretKey}
+                                                            onChange={(e) => setNewSecretKey(e.target.value)}
+                                                            placeholder="AGENT_KEY..."
+                                                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-bold text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Value</label>
+                                                        <input
+                                                            value={newSecretValue}
+                                                            onChange={(e) => setNewSecretValue(e.target.value)}
+                                                            type="password"
+                                                            placeholder="••••••••"
+                                                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-mono text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        if (!newSecretKey.trim()) return;
+                                                        const secrets = { ...config.settings?.secrets, [newSecretKey]: newSecretValue };
+                                                        updateField('settings', { ...config.settings, secrets });
+                                                        setNewSecretKey('');
+                                                        setNewSecretValue('');
+                                                        setIsAddingSecret(false);
+                                                    }}
+                                                    disabled={!newSecretKey.trim()}
+                                                    className="w-full py-4 bg-indigo-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                                                >
+                                                    Secure Secret
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <button
+                                                onClick={() => setIsAddingSecret(true)}
+                                                className="w-full py-5 rounded-2xl border border-dashed border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
+                                            >
+                                                <Plus size={16} className="text-muted-foreground group-hover:text-indigo-400" />
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-indigo-400">Add New Secret Entry</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             )}

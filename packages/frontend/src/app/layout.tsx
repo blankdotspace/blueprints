@@ -6,8 +6,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 
 export const metadata: Metadata = {
-    title: 'Blueprints | AI Launchpad',
-    description: 'Launch and Manage AI Agents',
+    title: 'Blueprints | Agents Launchpad',
+    description: 'Launch and Manage AI Agents Easily',
 };
 
 import { AuthProvider } from '@/components/auth-provider';
