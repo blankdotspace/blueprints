@@ -8,7 +8,7 @@ import { DOCKER_NETWORK_NAME, OPENCLAW_IMAGE, VPS_PUBLIC_IP } from '../lib/const
 import { cryptoUtils } from '../lib/crypto';
 import { UserTier, SecurityLevel, resolveSecurityLevel } from '@eliza-manager/shared';
 
-export async function startOpenClawAgent(agentId: string, config: any) {
+export async function startOpenClawAgent(agentId: string, config: any, metadata: any = {}) {
     logger.info(`Starting OpenClaw agent ${agentId}...`);
 
     try {
@@ -146,9 +146,8 @@ export async function startOpenClawAgent(agentId: string, config: any) {
 
         // specific casting because supabase types might be loose here in the worker
         const userTier = (agentData?.projects as any)?.tier as UserTier || UserTier.FREE;
-        const requestedLevel = (config.metadata?.security_level as SecurityLevel) || SecurityLevel.SANDBOX;
-
         // Resolve Effective Security Level
+        const requestedLevel = (metadata?.security_level as SecurityLevel) || SecurityLevel.SANDBOX;
         const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel);
 
         // Apply Security Context
