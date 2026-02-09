@@ -7,9 +7,15 @@ import {
     LayoutDashboard, Users, Bot, Zap, Shield,
     ArrowLeft, Loader2, RefreshCw, AlertTriangle,
     TrendingUp, Activity, Terminal, MessageSquare, Star,
-    CreditCard, Wallet, Clock, Rocket, BarChart3
+    CreditCard, Wallet, Clock, Rocket, BarChart3, X
 } from 'lucide-react';
 import Link from 'next/link';
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 
 export default function AdminDashboard() {
     const [user, setUser] = useState<any>(null);
@@ -20,6 +26,9 @@ export default function AdminDashboard() {
     const [error, setError] = useState<string | null>(null);
     const [isDeploying, setIsDeploying] = useState(false);
     const [deploySuccess, setDeploySuccess] = useState(false);
+    const [modalOpen, setModalOpen] = useState<string | null>(null);
+    const [modalData, setModalData] = useState<any[]>([]);
+    const [modalLoading, setModalLoading] = useState(false);
     const supabase = createClient();
     const router = useRouter();
 
@@ -119,8 +128,35 @@ export default function AdminDashboard() {
         );
     }
 
-    const StatCard = ({ title, value, icon: Icon, color }: any) => (
-        <div className="glass-card rounded-[2rem] p-8 border border-white/5 relative overflow-hidden group">
+    const openModal = async (type: string) => {
+        setModalOpen(type);
+        setModalLoading(true);
+        setModalData([]);
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session?.access_token) return;
+
+            const res = await fetch(`${API_URL}/admin/${type}`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` }
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                setModalData(data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch modal data:', err);
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
+    const StatCard = ({ title, value, icon: Icon, color, onClick }: any) => (
+        <div
+            onClick={onClick}
+            className="glass-card rounded-[2rem] p-8 border border-white/5 relative overflow-hidden group cursor-pointer hover:border-white/20 transition-all"
+        >
             <div className={`absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity ${color}`}>
                 <Icon size={80} />
             </div>
@@ -150,7 +186,13 @@ export default function AdminDashboard() {
 
                     <div className="flex items-center gap-4 ml-12 md:ml-0">
                         <button
-                            onClick={() => { setLoading(true); fetchStats(user?.access_token); }}
+                            onClick={async () => {
+                                const { data: { session } } = await supabase.auth.getSession();
+                                if (session?.access_token) {
+                                    setLoading(true);
+                                    fetchStats(session.access_token);
+                                }
+                            }}
                             className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-white/10 transition-all group"
                         >
                             <RefreshCw size={20} className="group-active:rotate-180 transition-transform duration-500" />
@@ -163,10 +205,10 @@ export default function AdminDashboard() {
                 </header>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                    <StatCard title="Total Citizens" value={stats?.users} icon={Users} color="text-blue-400" />
-                    <StatCard title="Active Clusters" value={stats?.projects} icon={LayoutDashboard} color="text-purple-400" />
-                    <StatCard title="Upgrade Wave" value={stats?.upgradeCount} icon={Rocket} color="text-green-400" />
-                    <StatCard title="Total Agents" value={stats?.agents} icon={Bot} color="text-primary" />
+                    <StatCard title="Total Users" value={stats?.users} icon={Users} color="text-blue-400" onClick={() => openModal('users')} />
+                    <StatCard title="Total Agents" value={stats?.agents} icon={Bot} color="text-primary" onClick={() => openModal('agents')} />
+                    <StatCard title="Active Clusters" value={stats?.projects} icon={LayoutDashboard} color="text-purple-400" onClick={() => openModal('clusters')} />
+                    <StatCard title="Upgrade Wave" value={stats?.upgradeCount} icon={Rocket} color="text-green-400" onClick={() => openModal('upgrades')} />
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
@@ -246,7 +288,7 @@ export default function AdminDashboard() {
                     {/* Payment Leaderboard */}
                     <div className="glass-card rounded-[3rem] p-10 border border-white/5">
                         <h3 className="text-xl font-black tracking-tight flex items-center gap-3 italic mb-8 uppercase text-blue-400">
-                            <BarChart3 size={20} /> Protocol Rank
+                            <BarChart3 size={20} /> Payment Rank
                         </h3>
                         <div className="space-y-4">
                             {Object.entries(stats?.paymentStats || {}).sort((a: any, b: any) => b[1] - a[1]).map(([method, count], i) => (
@@ -304,7 +346,7 @@ export default function AdminDashboard() {
                 {/* Section 3: Detailed Upgrade Logs */}
                 <div className="glass-card rounded-[3rem] p-10 border border-white/5">
                     <h3 className="text-2xl font-black tracking-tight flex items-center gap-3 italic mb-8 uppercase text-green-400">
-                        <Rocket size={24} /> Upgrade Archive
+                        <Rocket size={24} /> Survey Archive
                     </h3>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-h-[800px] overflow-y-auto pr-4 custom-scrollbar">
@@ -357,6 +399,130 @@ export default function AdminDashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Data Modals */}
+            <Dialog open={modalOpen !== null} onOpenChange={() => setModalOpen(null)}>
+                <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto bg-black/95 border-white/10">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-black uppercase tracking-tight">
+                            {modalOpen === 'users' && 'Total Users'}
+                            {modalOpen === 'agents' && 'Total Agents'}
+                            {modalOpen === 'clusters' && 'Active Clusters'}
+                            {modalOpen === 'upgrades' && 'Upgrade Wave'}
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {modalLoading ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="size-8 animate-spin text-primary" />
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="border-b border-white/10">
+                                        {modalOpen === 'users' && (
+                                            <>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Email</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Role</th>
+                                            </>
+                                        )}
+                                        {modalOpen === 'agents' && (
+                                            <>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Name</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Type</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Status</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
+                                            </>
+                                        )}
+                                        {modalOpen === 'clusters' && (
+                                            <>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Name</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Owner</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Agents</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
+                                            </>
+                                        )}
+                                        {modalOpen === 'upgrades' && (
+                                            <>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">User</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Plan</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Payment</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Date</th>
+                                            </>
+                                        )}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {modalData.length === 0 ? (
+                                        <tr>
+                                            <td colSpan={4} className="text-center py-8 text-muted-foreground italic">
+                                                No data available
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        modalData.map((item: any, idx: number) => (
+                                            <tr key={idx} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                                {modalOpen === 'users' && (
+                                                    <>
+                                                        <td className="p-3 font-medium">{item.email}</td>
+                                                        <td className="p-3 text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                                                        <td className="p-3">
+                                                            <span className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold uppercase">
+                                                                {item.role || 'user'}
+                                                            </span>
+                                                        </td>
+                                                    </>
+                                                )}
+                                                {modalOpen === 'agents' && (
+                                                    <>
+                                                        <td className="p-3 font-medium">{item.name}</td>
+                                                        <td className="p-3 text-muted-foreground uppercase text-xs">{item.framework || 'eliza'}</td>
+                                                        <td className="p-3">
+                                                            <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${(item.status?.status || 'stopped') === 'running' ? 'bg-green-500/10 text-green-500' :
+                                                                    (item.status?.status || 'stopped') === 'stopped' ? 'bg-red-500/10 text-red-500' :
+                                                                        'bg-yellow-500/10 text-yellow-500'
+                                                                }`}>
+                                                                {item.status?.status || 'stopped'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                                                    </>
+                                                )}
+                                                {modalOpen === 'clusters' && (
+                                                    <>
+                                                        <td className="p-3 font-medium">{item.name}</td>
+                                                        <td className="p-3 text-muted-foreground">{item.owner_email}</td>
+                                                        <td className="p-3">
+                                                            <span className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">
+                                                                {item.agent_count || 0}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                                                    </>
+                                                )}
+                                                {modalOpen === 'upgrades' && (
+                                                    <>
+                                                        <td className="p-3 font-medium">{item.user_email}</td>
+                                                        <td className="p-3">
+                                                            <span className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold uppercase">
+                                                                {item.plan_selected}
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-3 text-muted-foreground uppercase text-xs">{item.payment_method}</td>
+                                                        <td className="p-3 text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
+                                                    </>
+                                                )}
+                                            </tr>
+                                        ))
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

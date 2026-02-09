@@ -70,6 +70,59 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         return stats;
     });
 
+    // 2. Users listing (Admin only)
+    fastify.get('/users', async () => {
+        const { data: profiles, error } = await fastify.supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return profiles;
+    });
+
+    // 3. Clusters (Projects) listing (Admin only)
+    fastify.get('/clusters', async () => {
+        const { data: projects, error } = await fastify.supabase
+            .from('projects')
+            .select('*, profiles(email), agents(count)')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        return projects.map((p: any) => ({
+            ...p,
+            owner_email: p.profiles?.email || 'Unknown',
+            agent_count: p.agents?.[0]?.count || 0
+        }));
+    });
+
+    // 4. Upgrades listing (Admin only) - Alias for upgrade-feedback but with simpler path
+    fastify.get('/upgrades', async () => {
+        const { data: upgrades, error: uError } = await fastify.supabase
+            .from('upgrade_feedback')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (uError) throw uError;
+        if (!upgrades || upgrades.length === 0) return [];
+
+        const userIds = Array.from(new Set(upgrades.map((u: any) => u.user_id)));
+        const { data: profiles, error: pError } = await fastify.supabase
+            .from('profiles')
+            .select('id, email')
+            .in('id', userIds);
+
+        if (pError) fastify.log.error(pError, 'Failed to fetch profiles for upgrades');
+
+        return upgrades.map((u: any) => ({
+            ...u,
+            user_email: profiles?.find(p => p.id === u.user_id)?.email || 'Unknown',
+            plan_selected: u.plan_selected || 'Unknown',
+            payment_method: u.payment_method || 'Unknown',
+        }));
+    });
+
     // 2. Feedback listing (Admin only)
     fastify.get('/feedback', async () => {
         // Fetch feedbacks first
