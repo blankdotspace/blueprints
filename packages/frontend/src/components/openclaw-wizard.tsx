@@ -80,10 +80,12 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
             const data = await res.json();
             // Venice returns { data: [{ id: "...", ... }] }
             if (data?.data && Array.isArray(data.data)) {
-                setVeniceModels(data.data);
+                // Filter to only models that support function calling
+                const functionCallingModels = data.data.filter((m: any) => m.supportsFunctionCalling === true);
+                setVeniceModels(functionCallingModels);
                 // If current modelId is not in the list, or we want to suggest one
-                if (!config.modelId || !data.data.find((m: any) => m.id === config.modelId)) {
-                    const defaultModel = data.data.find((m: any) => m.id.includes('70b')) || data.data[0];
+                if (!config.modelId || !functionCallingModels.find((m: any) => m.id === config.modelId)) {
+                    const defaultModel = functionCallingModels.find((m: any) => m.id.includes('70b')) || functionCallingModels[0];
                     if (defaultModel) setConfig((prev: any) => ({ ...prev, modelId: defaultModel.id }));
                 }
             }
