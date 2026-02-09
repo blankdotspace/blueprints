@@ -127,16 +127,14 @@ export async function startOpenClawAgent(agentId: string, config: any) {
             env.push(`OPENCLAW_GATEWAY_TOKEN=${finalConfig.gateway.auth.token}`);
         }
 
-        // Fetch User Tier for Security Enforcement
+        // Fetch User Tier and Project Tier for Security Enforcement
         const { data: agentData, error: agentError } = await supabase
             .from('agents')
             .select(`
                 project_id,
                 projects (
                     user_id,
-                    profiles (
-                        tier
-                    )
+                    tier
                 )
             `)
             .eq('id', agentId)
@@ -147,7 +145,7 @@ export async function startOpenClawAgent(agentId: string, config: any) {
         }
 
         // specific casting because supabase types might be loose here in the worker
-        const userTier = (agentData?.projects as any)?.profiles?.tier as UserTier || UserTier.FREE;
+        const userTier = (agentData?.projects as any)?.tier as UserTier || UserTier.FREE;
         const requestedLevel = (config.metadata?.security_level as SecurityLevel) || SecurityLevel.SANDBOX;
 
         // Resolve Effective Security Level
@@ -257,11 +255,23 @@ export async function stopOpenClawAgent(agentId: string) {
 export async function runTerminalCommand(agentId: string, command: string): Promise<string> {
     const containerName = getAgentContainerName(agentId, 'openclaw');
     try {
+        // Fetch security level to determine working directory
+        const { data: actual } = await supabase
+            .from('agent_actual_state')
+            .select('effective_security_tier')
+            .eq('agent_id', agentId)
+            .single();
+
+        const securityLevel = parseInt(actual?.effective_security_tier || '0');
+
+        // Allowed to navigate anywhere (restricted by Docker User)
+        const workingDir = securityLevel >= 1 ? '/' : '/home/node/.openclaw';
+
         const exec = await docker.createExec(containerName, {
             AttachStdout: true,
             AttachStderr: true,
             Tty: true,
-            WorkingDir: '/home/node/.openclaw',
+            WorkingDir: workingDir,
             Cmd: ['sh', '-c', command]
         });
 
