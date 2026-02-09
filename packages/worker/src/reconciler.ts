@@ -48,12 +48,18 @@ export async function reconcile() {
         for (const agent of agents) {
             const desired = agent.agent_desired_state;
             const actual = agent.agent_actual_state;
-
             if (!desired) continue;
+
+            const now = new Date();
+            const purgeDate = desired.purge_at ? new Date(desired.purge_at) : null;
+            const stopDate = purgeDate ? new Date(purgeDate.getTime() - (24 * 60 * 60 * 1000)) : null;
+
+            // 1. Handle Auto-Stop during countdown transition
+            const isInTerminationWindow = stopDate && now >= stopDate;
+            const shouldBeRunning = desired.enabled && !isInTerminationWindow;
 
             const status = actual?.status || 'stopped';
             let isRunning = status === 'running';
-            const shouldBeRunning = desired.enabled;
 
             // Verify Docker state for OpenClaw/Eliza agents
             const containerName = getAgentContainerName(agent.id, agent.framework);
@@ -70,17 +76,18 @@ export async function reconcile() {
                 isRunning = false;
             }
 
-            // Purge Logic
-            if (desired.purge_at && now >= new Date(desired.purge_at)) {
+            // Purge Logic: Final Execution
+            if (purgeDate && now >= purgeDate) {
                 logger.info(`[TERMINATE] Executing final deletion for agent ${agent.id}...`);
                 try {
                     if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
                     else await stopElizaAgent(agent.id);
+                    // ONLY delete from DB if cleanup succeeded
+                    await supabase.from('agents').delete().eq('id', agent.id);
+                    logger.info(`[TERMINATE] Agent ${agent.id} successfully purged from both Docker and DB.`);
                 } catch (cleanupErr: any) {
-                    logger.warn(`[PURGE] Failed to stop/remove container for ${agent.id}: ${cleanupErr.message}. Proceeding with DB deletion.`);
+                    logger.error(`[PURGE] Critical failure during termination for ${agent.id}: ${cleanupErr.message}. DB record preserved for retry.`);
                 }
-
-                await supabase.from('agents').delete().eq('id', agent.id);
                 continue;
             }
 
@@ -141,6 +148,44 @@ export async function reconcile() {
     }
 }
 
+async function cleanupOrphanContainers() {
+    logger.info('🧹 Starting Orphan Container Cleanup...');
+    try {
+        const { data: agents, error } = await supabase.from('agents').select('id');
+        if (error) {
+            logger.error('Cleanup Error: Failed to fetch agents:', error.message);
+            return;
+        }
+
+        const activeAgentIds = new Set(agents.map(a => a.id));
+        const containers = await docker.listContainers();
+
+        for (const container of containers) {
+            const name = container.Names[0].replace('/', '');
+            // Pattern: [framework]-[agent_id]
+            const match = name.match(/^(openclaw|eliza)-([a-f0-9-]{36})$/);
+            if (match) {
+                const agentId = match[2];
+                if (!activeAgentIds.has(agentId)) {
+                    logger.warn(`[CLEANUP] Found orphan container ${name} (Agent ${agentId} missing from DB). Removing...`);
+                    try {
+                        const c = await docker.getContainer(container.Id);
+                        if (container.State === 'running') {
+                            await c.stop();
+                        }
+                        await c.remove();
+                        logger.info(`[CLEANUP] Successfully removed orphan container ${name}`);
+                    } catch (err: any) {
+                        logger.error(`[CLEANUP] Failed to remove ${name}:`, err.message);
+                    }
+                }
+            }
+        }
+    } catch (err: any) {
+        logger.error('Cleanup Loop Error:', err.message);
+    }
+}
+
 export function startStateListener() {
     logger.info('🛰️  Starting State Change Listener...');
     supabase
@@ -159,7 +204,12 @@ export function startStateListener() {
 export function startReconciler() {
     logger.info(`Starting Reconciler (Interval: ${RECONCILE_INTERVAL_MS}ms)...`);
     setInterval(reconcile, RECONCILE_INTERVAL_MS);
+
+    // Zombie Cleanup: Run every 5 minutes
+    setInterval(cleanupOrphanContainers, 5 * 60 * 1000);
+
     // Initial run
     reconcile();
+    cleanupOrphanContainers();
     startStateListener();
 }
