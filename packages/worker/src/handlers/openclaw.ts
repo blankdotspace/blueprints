@@ -261,6 +261,7 @@ export async function runTerminalCommand(agentId: string, command: string): Prom
             AttachStdout: true,
             AttachStderr: true,
             Tty: true,
+            WorkingDir: '/home/node/.openclaw',
             Cmd: ['sh', '-c', command]
         });
 
