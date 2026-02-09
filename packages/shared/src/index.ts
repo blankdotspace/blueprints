@@ -192,6 +192,26 @@ export const AgentStateSchema = z.object({
     effective_security_tier: z.string().optional()
 });
 
+// --- Support Agent Proxy Schemas ---
+
+export const CreateSupportSessionSchema = z.object({
+    ip_hash: z.string(),
+    user_agent: z.string().optional(),
+});
+
+export const SupportMessageSchema = z.object({
+    session_id: z.string().uuid(),
+    content: z.string().min(1).max(5000),
+    sequence: z.number().int().nonnegative(),
+});
+
+export const SupportProxyConfigSchema = z.object({
+    agent_id: z.string().uuid(),
+    online: z.boolean(),
+});
+
 export type CreateProjectRequest = z.infer<typeof CreateProjectSchema>;
 export type UpdateAgentConfigRequest = z.infer<typeof UpdateAgentConfigSchema>;
 export type CreateAgentRequest = z.infer<typeof CreateAgentSchema>;
+export type CreateSupportSessionRequest = z.infer<typeof CreateSupportSessionSchema>;
+export type SupportMessageRequest = z.infer<typeof SupportMessageSchema>;
