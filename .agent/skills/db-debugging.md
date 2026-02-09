@@ -63,3 +63,29 @@ const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SE
 
 // ... your logic here ...
 ```
+
+## 🛠️ Using Supabase MCP Server
+
+This project integrates with the **Supabase MCP Server** to provide direct access to the database and project resources.
+
+### 1. Verification & Enabling
+
+Ensure the **supabase-mcp-server** is installed and enabled in your MCP settings. You can verify its availability by checking if tools like `mcp_supabase-mcp-server_list_projects` are available.
+
+### 2. Connection Details
+
+Connect to the **Blueprints** project using the following details:
+
+- **Project Name**: `Blueprints`
+- **Project ID**: `btxpmhkqmbqcfbcicwmk`
+- **Region**: `us-west-2`
+- **Organization ID**: `oaaiemwrorgjyuonlotw`
+
+### 3. Usage
+
+Use the MCP tools to interact with the database directly from your agent interface:
+- **Execute SQL**: `mcp_supabase-mcp-server_execute_sql`
+- **List Tables**: `mcp_supabase-mcp-server_list_tables`
+- **Inspect Schema**: `mcp_supabase-mcp-server_get_project`
+
+This allows for direct query execution and schema inspection without needing local scripts for simple tasks.
