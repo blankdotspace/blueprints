@@ -41,6 +41,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
         isOpen: false,
         agentId: null
     });
+    const [loadingAgents, setLoadingAgents] = useState<Set<string>>(new Set());
 
     const fetchProjectAndAgents = useCallback(async (isInitial = false) => {
         if (!session?.access_token) return;
@@ -161,13 +162,20 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
 
     const handlePurge = async (agentId: string, currentStatus: string) => {
         if (!session?.access_token) return;
-        try {
-            // Smart Purge: 
-            // If running: now + 24h + 10s (Quick stop)
-            // If stopped: now + 24h (Direct decommissioning)
-            const stopBuffer = currentStatus === 'running' || currentStatus === 'starting' ? 10 * 1000 : 0;
-            const purgeAt = new Date(Date.now() + (24 * 60 * 60 * 1000) + stopBuffer).toISOString();
 
+        // Add loading state
+        setLoadingAgents(prev => new Set(prev).add(agentId));
+
+        // Optimistic update
+        const stopBuffer = currentStatus === 'running' || currentStatus === 'starting' ? 10 * 1000 : 0;
+        const purgeAt = new Date(Date.now() + (24 * 60 * 60 * 1000) + stopBuffer).toISOString();
+        setAgents(prev => prev.map(a =>
+            a.id === agentId
+                ? { ...a, agent_desired_state: { ...a.agent_desired_state, purge_at: purgeAt } }
+                : a
+        ));
+
+        try {
             const res = await fetch(`${API_URL}/agents/${agentId}/config`, {
                 method: 'PATCH',
                 headers: {
@@ -181,12 +189,28 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             setError(null);
             onDataChange?.();
         } catch (err: any) {
+            // Revert optimistic update on error
+            await fetchProjectAndAgents();
             setError(err.message);
+        } finally {
+            setLoadingAgents(prev => {
+                const next = new Set(prev);
+                next.delete(agentId);
+                return next;
+            });
         }
     };
 
     const handleForcePurge = async (agentId: string) => {
         if (!session?.access_token) return;
+
+        // Add loading state
+        setLoadingAgents(prev => new Set(prev).add(agentId));
+
+        // Optimistic update - remove agent from list immediately
+        const agentToRemove = agents.find(a => a.id === agentId);
+        setAgents(prev => prev.filter(a => a.id !== agentId));
+
         try {
             // Execute Immediately: set purge_at to now
             const now = new Date().toISOString();
@@ -203,7 +227,15 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             setError(null);
             onDataChange?.();
         } catch (err: any) {
+            // Revert optimistic update on error
+            if (agentToRemove) setAgents(prev => [...prev, agentToRemove]);
             setError(err.message);
+        } finally {
+            setLoadingAgents(prev => {
+                const next = new Set(prev);
+                next.delete(agentId);
+                return next;
+            });
         }
     };
 
@@ -231,6 +263,17 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
 
     const handleAbortPurge = async (agentId: string) => {
         if (!session?.access_token) return;
+
+        // Add loading state
+        setLoadingAgents(prev => new Set(prev).add(agentId));
+
+        // Optimistic update - remove purge_at immediately
+        setAgents(prev => prev.map(a =>
+            a.id === agentId
+                ? { ...a, agent_desired_state: { ...a.agent_desired_state, purge_at: null } }
+                : a
+        ));
+
         try {
             const res = await fetch(`${API_URL}/agents/${agentId}/config`, {
                 method: 'PATCH',
@@ -245,7 +288,15 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             setError(null);
             onDataChange?.();
         } catch (err: any) {
+            // Revert optimistic update on error
+            await fetchProjectAndAgents();
             setError(err.message);
+        } finally {
+            setLoadingAgents(prev => {
+                const next = new Set(prev);
+                next.delete(agentId);
+                return next;
+            });
         }
     };
 

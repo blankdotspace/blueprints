@@ -80,8 +80,14 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
             const data = await res.json();
             // Venice returns { data: [{ id: "...", ... }] }
             if (data?.data && Array.isArray(data.data)) {
-                // Filter to only models that support function calling
-                const functionCallingModels = data.data.filter((m: any) => m.model_spec?.capabilities?.supportsFunctionCalling === true);
+                // Filter to only models that support function calling, then sort by name
+                const functionCallingModels = data.data
+                    .filter((m: any) => m.model_spec?.capabilities?.supportsFunctionCalling === true)
+                    .sort((a: any, b: any) => {
+                        const nameA = (a.model_spec?.name || a.id).toLowerCase();
+                        const nameB = (b.model_spec?.name || b.id).toLowerCase();
+                        return nameA.localeCompare(nameB);
+                    });
                 setVeniceModels(functionCallingModels);
                 // If current modelId is not in the list, or we want to suggest one
                 if (!config.modelId || !functionCallingModels.find((m: any) => m.id === config.modelId)) {
@@ -102,9 +108,8 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
         { id: 2, title: 'Neural Credentials', icon: <Key size={20} /> },
         { id: 3, title: 'Model Selection', icon: <Cpu size={20} />, hidden: config.provider !== 'venice' },
         { id: 4, title: 'Permissions & Security', icon: <Shield size={20} /> },
-        { id: 5, title: 'Gateway Security', icon: <Lock size={20} /> },
-        { id: 6, title: 'Communication Channels', icon: <Share2 size={20} /> },
-        { id: 7, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
+        { id: 5, title: 'Communication Channels', icon: <Share2 size={20} /> },
+        { id: 6, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
     ].filter(s => !s.hidden);
 
     const handleSave = async () => {
@@ -441,11 +446,10 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         {step === 5 && (
                             <div className="space-y-8">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                    Where should **{agent.name}** live? The primary terminal is mandatory, but you can select additional neural channels.
+                                    Select which communication channels <strong>{agent.name}</strong> should be available on.
                                 </p>
                                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                                     {[
-                                        { id: 'blueprints_chat', name: 'Blueprints Chat', icon: <MessageSquare size={20} className="text-primary" />, mandatory: true },
                                         { id: 'telegram', name: 'Telegram', icon: <Send size={20} className="text-blue-400" /> },
                                         { id: 'discord', name: 'Discord', icon: <Hash size={20} className="text-indigo-400" /> },
                                         { id: 'whatsapp', name: 'WhatsApp', icon: <MessageCircle size={20} className="text-green-400" /> },
@@ -454,17 +458,15 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                                         <button
                                             key={c.id}
                                             onClick={() => {
-                                                if (c.mandatory) return;
                                                 setConfig({
                                                     ...config,
                                                     channels: { ...config.channels, [c.id]: !(config.channels as any)[c.id] }
                                                 });
                                             }}
-                                            disabled={c.mandatory}
                                             className={`p-6 rounded-2xl border transition-all flex flex-col items-center gap-4 text-center ${(config.channels as any)[c.id]
                                                 ? 'border-primary bg-primary/10 text-primary'
                                                 : 'border-white/5 bg-white/5 hover:bg-white/10 text-muted-foreground'
-                                                } ${c.mandatory ? 'cursor-default ring-2 ring-primary/20' : ''}`}
+                                                }`}
                                         >
                                             <div className="size-10 rounded-xl bg-white/10 flex items-center justify-center">
                                                 {c.icon}
@@ -472,7 +474,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                                             <span className="font-bold text-xs uppercase tracking-widest">{c.name}</span>
                                             {(config.channels as any)[c.id] && (
                                                 <div className="absolute top-4 right-4 text-primary">
-                                                    {c.mandatory ? <ShieldCheck size={14} /> : <Check size={14} />}
+                                                    <Check size={14} />
                                                 </div>
                                             )}
                                         </button>
