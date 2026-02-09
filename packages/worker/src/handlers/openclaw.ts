@@ -8,7 +8,7 @@ import { DOCKER_NETWORK_NAME, OPENCLAW_IMAGE, VPS_PUBLIC_IP } from '../lib/const
 import { cryptoUtils } from '../lib/crypto';
 import { UserTier, SecurityLevel, resolveSecurityLevel } from '@eliza-manager/shared';
 
-export async function startOpenClawAgent(agentId: string, config: any, metadata: any = {}) {
+export async function startOpenClawAgent(agentId: string, config: any, metadata: any = {}, forceDoctor: boolean = false) {
     logger.info(`Starting OpenClaw agent ${agentId}...`);
 
     try {
@@ -113,14 +113,23 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
 
         fs.writeFileSync(configPath, JSON.stringify(configToWrite, null, 2));
         try {
-            fs.chownSync(configPath, 1000, 1000); // Ensure node user owns the config
+            // OpenClaw is sensitive to permissions (similar to SSH keys)
+            // It may ignore configs that are group/world readable.
+            fs.chownSync(configPath, 1000, 1000);
+            fs.chmodSync(configPath, 0o600); // -rw-------
+
+            // Tighten the workspace directory too
+            const workspaceDir = path.dirname(configPath);
+            fs.chmodSync(workspaceDir, 0o700); // drwx------
         } catch (e) {
-            logger.warn(`Failed to chown config file: ${e}`);
+            logger.warn(`Failed to set permissions on config: ${e}`);
         }
 
         const env = [
+            `HOME=/home/node`,
             `OPENCLAW_WORKSPACE_DIR=/home/node/.openclaw`,
-            `OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json`
+            `OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json`,
+            `OPENCLAW_GATEWAY_MODE=local`
         ];
 
         if (finalConfig.gateway?.auth?.token) {
@@ -146,13 +155,15 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
 
         // specific casting because supabase types might be loose here in the worker
         const userTier = (agentData?.projects as any)?.tier as UserTier || UserTier.FREE;
-        // Resolve Effective Security Level
         const requestedLevel = (metadata?.security_level as SecurityLevel) || SecurityLevel.SANDBOX;
+
+        // Resolve Effective Security Level
         const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel);
 
         // Apply Security Context
         let user = '1000:1000';
         let capAdd: string[] = [];
+        let workingDir = '/home/node/.openclaw'; // Default for Sandbox
         const binds = [`${hostOpenclawDir}:/home/node/.openclaw`];
 
         switch (effectiveLevel) {
@@ -191,12 +202,19 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
             }
         }
 
+        // Use the CLI entrypoint (openclaw.mjs) for proper bootstrapping
+        const commonArgs = ['gateway', '--bind', 'lan', '--allow-unconfigured'];
+
+        const cmd = forceDoctor
+            ? ['sh', '-c', `node openclaw.mjs doctor --fix --non-interactive --yes && node openclaw.mjs ${commonArgs.join(' ')}`]
+            : ['node', 'openclaw.mjs', ...commonArgs];
+
         const newContainer = await docker.createContainer({
             Image: OPENCLAW_IMAGE,
             User: user,
             name: containerName,
             Env: env,
-            Cmd: ['node', 'dist/index.js', 'gateway', '--bind', 'lan'],
+            Cmd: cmd,
             ExposedPorts: { '18789/tcp': {} },
             HostConfig: {
                 Binds: binds,
