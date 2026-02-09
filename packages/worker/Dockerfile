@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY packages ./packages
 
-RUN bun install
+# Install deps (skip optional native modules like cpu-features)
+RUN bun install --ignore-scripts
 
 CMD ["bun", "packages/worker/src/index.ts"]
