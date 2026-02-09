@@ -85,15 +85,30 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     fastify.get('/clusters', async () => {
         const { data: projects, error } = await fastify.supabase
             .from('projects')
-            .select('*, profiles(email), agents(count)')
+            .select(`
+                *,
+                profiles(email),
+                agents(id)
+            `)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
+        // Fetch active agents count for each project
+        const projectIds = projects.map(p => p.id);
+        const { data: activeAgents } = await fastify.supabase
+            .from('agent_actual_state')
+            .select('agent_id, status')
+            .in('agent_id', projects.flatMap(p => p.agents.map((a: any) => a.id)))
+            .eq('status', 'running');
+
+        const activeAgentIds = new Set(activeAgents?.map(a => a.agent_id));
+
         return projects.map((p: any) => ({
             ...p,
             owner_email: p.profiles?.email || 'Unknown',
-            agent_count: p.agents?.[0]?.count || 0
+            total_agents: p.agents?.length || 0,
+            active_agents: p.agents?.filter((a: any) => activeAgentIds.has(a.id)).length || 0
         }));
     });
 
@@ -176,7 +191,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     // 4. All agents list (Admin view)
     fastify.get('/agents', async () => {
-        const { data, error } = await fastify.supabase
+        // Fetch agents with project and desired state
+        const { data: agents, error } = await fastify.supabase
             .from('agents')
             .select(`
                 *,
@@ -187,12 +203,26 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             .order('created_at', { ascending: false });
 
         if (error) throw error;
-        return data;
+
+        // Fetch user emails for the projects
+        const userIds = Array.from(new Set(agents.map((a: any) => a.project?.user_id).filter(Boolean)));
+        const { data: profiles } = await fastify.supabase
+            .from('profiles')
+            .select('id, email')
+            .in('id', userIds);
+
+        const profileMap = new Map(profiles?.map(p => [p.id, p.email]));
+
+        return agents.map((a: any) => ({
+            ...a,
+            project_name: a.project?.name || 'Unknown',
+            user_email: profileMap.get(a.project?.user_id) || 'Unknown'
+        }));
     });
 
     // 3. System Management (Super Admin only)
     fastify.post('/deploy-super-agent', { preHandler: [fastify.superAdminGuard] }, async (request, reply) => {
-        // Ensure Admin Project exists
+        // 1. Find or Create Administrative Cluster FIRST
         let { data: project, error: pError } = await fastify.supabase
             .from('projects')
             .select('id')
@@ -201,16 +231,32 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             .single();
 
         if (pError || !project) {
+            // Check if it's a "not found" error or something else
+            if (pError && pError.code !== 'PGRST116') { // PGRST116 is "The result contains 0 rows"
+                // Check if we should ignore or throw? Let's try to create.
+            }
+
             const { data: newProject, error } = await fastify.supabase
                 .from('projects')
                 .insert([{ name: 'Administrative Cluster', user_id: request.userId, tier: 'enterprise' }])
                 .select()
                 .single();
+
             if (error || !newProject) throw error || new Error('Failed to create Administrative Cluster');
             project = newProject as any;
         }
 
-        // Create Super Agent
+        // 2. Check for ANY agent in this Administrative Cluster
+        const { data: existingAgents, error: searchError } = await fastify.supabase
+            .from('agents')
+            .select('id')
+            .eq('project_id', (project as any).id);
+
+        if (!searchError && existingAgents && existingAgents.length > 0) {
+            return { message: 'Super Agent already exists', agentId: existingAgents[0].id, alreadyExists: true };
+        }
+
+        // 3. Create Super Agent if none exists
         const { data: agent, error: agentError } = await fastify.supabase
             .from('agents')
             .insert([{
@@ -247,6 +293,33 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             message: 'System management interface active',
             dockerSupported: true
         };
+    });
+
+    // Emergency Stop All Agents
+    fastify.post('/stop-all-agents', { preHandler: [fastify.superAdminGuard] }, async (request, reply) => {
+        fastify.log.warn('EMERGENCY: Stop all agents requested by ' + request.userId);
+
+        // 1. Update all desired states to disabled
+        const { error: updateError } = await fastify.supabase
+            .from('agent_desired_state')
+            .update({ enabled: false })
+            .neq('enabled', false); // Only update those that are enabled
+
+        if (updateError) {
+            fastify.log.error(updateError, 'Failed to disable all agents in DB');
+            throw updateError;
+        }
+
+        // 2. Trigger worker job to stop everything (optional: add specific job type if needed)
+        // For now, we rely on the worker picking up the desired state change.
+        // But to be faster, we can push a "stop_all" job if the queue supports it.
+        // Assuming standard reconciliation loop will pick it up. 
+        // We can also force invalidation if possible.
+
+        // Retrieve authentication for worker queue injection
+        // (Assuming standard queue injection is available or we just rely on DB polling)
+
+        return { message: 'Emergency stop protocol initiated. All agents set to disabled.' };
     });
 };
 

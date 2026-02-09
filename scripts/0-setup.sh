@@ -42,7 +42,7 @@ for SCRIPT in "${SCRIPTS[@]}"; do
     
     while true; do
         # Prompt for user input
-        read -p "(C)ontinue, (sK)ip, or (S)top? [c/k/s]: " choice
+        read -p "Continue, sKip, or Stop? [c/k/s]: " choice
         case $choice in
             [Cc]* ) 
                 echo "🚀 Running $SCRIPT..."
@@ -56,7 +56,7 @@ for SCRIPT in "${SCRIPTS[@]}"; do
                 echo "🛑 Stopping setup."
                 exit 0;;
             * ) 
-                echo "Please answer C, k, or S.";;
+                echo "Please answer C, K, or S.";;
         esac
     done
 done

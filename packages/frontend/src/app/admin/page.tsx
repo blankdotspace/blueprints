@@ -431,7 +431,8 @@ export default function AdminDashboard() {
                                         {modalOpen === 'agents' && (
                                             <>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Name</th>
-                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Type</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Project</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Owner</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Status</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
                                             </>
@@ -440,7 +441,7 @@ export default function AdminDashboard() {
                                             <>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Name</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Owner</th>
-                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Agents</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Agents (Active/Total)</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
                                             </>
                                         )}
@@ -478,11 +479,12 @@ export default function AdminDashboard() {
                                                 {modalOpen === 'agents' && (
                                                     <>
                                                         <td className="p-3 font-medium">{item.name}</td>
-                                                        <td className="p-3 text-muted-foreground uppercase text-xs">{item.framework || 'eliza'}</td>
+                                                        <td className="p-3 text-muted-foreground text-xs">{item.project_name}</td>
+                                                        <td className="p-3 text-muted-foreground text-xs">{item.user_email}</td>
                                                         <td className="p-3">
                                                             <span className={`px-2 py-1 rounded-lg text-xs font-bold uppercase ${(item.status?.status || 'stopped') === 'running' ? 'bg-green-500/10 text-green-500' :
-                                                                    (item.status?.status || 'stopped') === 'stopped' ? 'bg-red-500/10 text-red-500' :
-                                                                        'bg-yellow-500/10 text-yellow-500'
+                                                                (item.status?.status || 'stopped') === 'stopped' ? 'bg-red-500/10 text-red-500' :
+                                                                    'bg-yellow-500/10 text-yellow-500'
                                                                 }`}>
                                                                 {item.status?.status || 'stopped'}
                                                             </span>
@@ -496,7 +498,7 @@ export default function AdminDashboard() {
                                                         <td className="p-3 text-muted-foreground">{item.owner_email}</td>
                                                         <td className="p-3">
                                                             <span className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold">
-                                                                {item.agent_count || 0}
+                                                                {item.active_agents} / {item.total_agents}
                                                             </span>
                                                         </td>
                                                         <td className="p-3 text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</td>
