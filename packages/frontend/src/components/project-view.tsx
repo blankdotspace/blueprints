@@ -42,6 +42,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
         agentId: null
     });
     const [loadingAgents, setLoadingAgents] = useState<Set<string>>(new Set());
+    const [purgingAgents, setPurgingAgents] = useState<Set<string>>(new Set());
 
     const fetchProjectAndAgents = useCallback(async (isInitial = false) => {
         if (!session?.access_token) return;
@@ -66,13 +67,14 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 throw new Error(aErr.message || 'Failed to fetch agents');
             }
             const data = await res.json();
-            setAgents(data);
+            // Filter out agents that are currently being purged to prevent flickering
+            setAgents(data.filter((a: any) => !purgingAgents.has(a.id)));
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    }, [projectId, session]);
+    }, [projectId, session, purgingAgents]);
 
     useEffect(() => {
         fetchProjectAndAgents(true);
@@ -206,6 +208,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
 
         // Add loading state
         setLoadingAgents(prev => new Set(prev).add(agentId));
+        setPurgingAgents(prev => new Set(prev).add(agentId));
 
         // Optimistic update - remove agent from list immediately
         const agentToRemove = agents.find(a => a.id === agentId);
@@ -223,12 +226,28 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 body: JSON.stringify({ purge_at: now })
             });
             if (!res.ok) throw new Error('Failed to execute force purge');
-            await fetchProjectAndAgents();
+
+            // Don't fetch immediately - let the polling interval handle it
+            // This prevents the agent from flickering back into view
             setError(null);
             onDataChange?.();
+
+            // Clean up purging state after a delay to ensure worker has processed
+            setTimeout(() => {
+                setPurgingAgents(prev => {
+                    const next = new Set(prev);
+                    next.delete(agentId);
+                    return next;
+                });
+            }, 5000);
         } catch (err: any) {
             // Revert optimistic update on error
             if (agentToRemove) setAgents(prev => [...prev, agentToRemove]);
+            setPurgingAgents(prev => {
+                const next = new Set(prev);
+                next.delete(agentId);
+                return next;
+            });
             setError(err.message);
         } finally {
             setLoadingAgents(prev => {
@@ -587,12 +606,18 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
 
                                 <div className="flex items-center gap-4 p-2 bg-white/5 rounded-[1.5rem] border border-white/5">
                                     <button
-                                        disabled={actual.status === 'starting' || actual.status === 'stopping'}
-                                        className={`size-14 rounded-2xl transition-all duration-300 flex items-center justify-center shadow-lg ${desired.enabled
-                                            ? 'bg-destructive/10 text-destructive hover:bg-destructive shadow-destructive/20 hover:text-white'
-                                            : 'bg-green-500/10 text-green-500 hover:bg-green-500 shadow-green-500/10 hover:text-white'
+                                        disabled={actual.status === 'starting' || actual.status === 'stopping' || !!desired.purge_at}
+                                        className={`size-14 rounded-2xl transition-all duration-300 flex items-center justify-center shadow-lg ${desired.purge_at
+                                                ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed'
+                                                : desired.enabled
+                                                    ? 'bg-destructive/10 text-destructive hover:bg-destructive shadow-destructive/20 hover:text-white'
+                                                    : 'bg-green-500/10 text-green-500 hover:bg-green-500 shadow-green-500/10 hover:text-white'
                                             }`}
-                                        title={desired.enabled ? 'Stop Skills' : 'Start Skills'}
+                                        title={
+                                            desired.purge_at
+                                                ? 'Agent scheduled for termination'
+                                                : desired.enabled ? 'Stop Skills' : 'Start Skills'
+                                        }
                                         onClick={(e) => {
                                             e.preventDefault();
                                             e.stopPropagation();

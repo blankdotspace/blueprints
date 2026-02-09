@@ -29,6 +29,8 @@ export default function AdminDashboard() {
     const [modalOpen, setModalOpen] = useState<string | null>(null);
     const [modalData, setModalData] = useState<any[]>([]);
     const [modalLoading, setModalLoading] = useState(false);
+    const [editingUserId, setEditingUserId] = useState<string | null>(null);
+    const [editingTier, setEditingTier] = useState<string>('free');
     const supabase = createClient();
     const router = useRouter();
 
@@ -91,6 +93,29 @@ export default function AdminDashboard() {
             console.error(err);
         } finally {
             setIsDeploying(false);
+        }
+    };
+
+    const handleUpdateUserTier = async (userId: string, newTier: string) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({ tier: newTier })
+                .eq('id', userId);
+
+            if (error) throw error;
+
+            // Refresh modal data
+            if (modalOpen === 'users') {
+                openModal('users');
+            }
+            setEditingUserId(null);
+        } catch (err) {
+            console.error('Failed to update user tier:', err);
+            alert('Failed to update user plan');
         }
     };
 
@@ -179,7 +204,7 @@ export default function AdminDashboard() {
                             <Link href="/dashboard" className="p-2 hover:bg-white/5 rounded-xl transition-colors text-muted-foreground">
                                 <ArrowLeft size={20} />
                             </Link>
-                            <h1 className="text-4xl font-black tracking-tighter uppercase">Super <span className="text-primary">Admin</span></h1>
+                            <h1 className="text-4xl font-black tracking-tighter uppercase">Super <span className="text-primary">Agent </span> Dashboard</h1>
                         </div>
                         <p className="text-muted-foreground font-medium ml-12">Global system oversight and autonomous agent control.</p>
                     </div>
@@ -426,6 +451,8 @@ export default function AdminDashboard() {
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Email</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Created</th>
                                                 <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Role</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Plan</th>
+                                                <th className="text-left p-3 font-black uppercase text-xs text-muted-foreground">Actions</th>
                                             </>
                                         )}
                                         {modalOpen === 'agents' && (
@@ -473,6 +500,51 @@ export default function AdminDashboard() {
                                                             <span className="px-2 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold uppercase">
                                                                 {item.role || 'user'}
                                                             </span>
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {editingUserId === item.id ? (
+                                                                <select
+                                                                    value={editingTier}
+                                                                    onChange={(e) => setEditingTier(e.target.value)}
+                                                                    className="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-xs font-bold uppercase outline-none focus:border-primary"
+                                                                >
+                                                                    <option value="free">Free</option>
+                                                                    <option value="pro">Pro</option>
+                                                                    <option value="enterprise">Enterprise</option>
+                                                                </select>
+                                                            ) : (
+                                                                <span className="px-2 py-1 rounded-lg bg-white/5 text-white text-xs font-bold uppercase">
+                                                                    {item.tier || 'free'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {editingUserId === item.id ? (
+                                                                <div className="flex gap-2">
+                                                                    <button
+                                                                        onClick={() => handleUpdateUserTier(item.id, editingTier)}
+                                                                        className="px-3 py-1 bg-green-500/20 text-green-400 rounded-lg text-xs font-bold uppercase hover:bg-green-500/30 transition-colors"
+                                                                    >
+                                                                        Save
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setEditingUserId(null)}
+                                                                        className="px-3 py-1 bg-white/5 text-muted-foreground rounded-lg text-xs font-bold uppercase hover:bg-white/10 transition-colors"
+                                                                    >
+                                                                        Cancel
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setEditingUserId(item.id);
+                                                                        setEditingTier(item.tier || 'free');
+                                                                    }}
+                                                                    className="px-3 py-1 bg-primary/20 text-primary rounded-lg text-xs font-bold uppercase hover:bg-primary/30 transition-colors"
+                                                                >
+                                                                    Edit Plan
+                                                                </button>
+                                                            )}
                                                         </td>
                                                     </>
                                                 )}

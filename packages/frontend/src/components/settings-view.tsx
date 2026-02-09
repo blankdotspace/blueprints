@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase';
-import { User, Lock, Save, Loader2, Check, Shield, Mail } from 'lucide-react';
+import { User, Lock, Save, Loader2, Check, Shield, Mail, Sparkles } from 'lucide-react';
+import UpgradeModal from './upgrade-modal';
 
 interface SettingsViewProps {
     user: any;
@@ -16,6 +17,7 @@ export default function SettingsView({ user }: SettingsViewProps) {
     const [fullName, setFullName] = useState(user?.user_metadata?.full_name || '');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -67,17 +69,7 @@ export default function SettingsView({ user }: SettingsViewProps) {
         fetchTier();
     }, [user.id]);
 
-    const handleUpdateTier = async (newTier: string) => {
-        setLoading(true);
-        const { error } = await supabase.from('profiles').update({ tier: newTier }).eq('id', user.id);
-        if (error) {
-            setMessage({ type: 'error', text: 'Failed to update tier' });
-        } else {
-            setTier(newTier);
-            setMessage({ type: 'success', text: `Tier updated to ${newTier.toUpperCase()}` });
-        }
-        setLoading(false);
-    };
+
 
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -176,26 +168,29 @@ export default function SettingsView({ user }: SettingsViewProps) {
 
                         <div className="h-px bg-white/5 my-8" />
 
-                        {/* Dev Tier Override */}
+                        {/* Plan Information */}
                         <div className="space-y-6">
                             <div className="flex items-center gap-2 mb-2">
-                                <Lock size={16} className="text-amber-500" />
-                                <h3 className="text-sm font-black uppercase tracking-widest text-amber-500">Development Tier Override</h3>
+                                <Sparkles size={16} className="text-primary" />
+                                <h3 className="text-sm font-black uppercase tracking-widest">Current Plan</h3>
                             </div>
-                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                {['free', 'pro', 'custom', 'enterprise'].map((t) => (
+                            <div className="p-6 rounded-2xl bg-white/5 border border-white/10">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-1">Active Tier</div>
+                                        <div className="text-2xl font-black text-primary capitalize">{tier}</div>
+                                    </div>
                                     <button
-                                        key={t}
                                         type="button"
-                                        onClick={() => handleUpdateTier(t)}
-                                        className={`p-4 rounded-xl border text-xs font-black uppercase tracking-widest transition-all ${tier === t
-                                                ? 'bg-amber-500/10 border-amber-500 text-amber-500'
-                                                : 'bg-white/5 border-white/10 text-muted-foreground hover:bg-white/10'
-                                            }`}
+                                        onClick={() => setIsUpgradeModalOpen(true)}
+                                        className="px-6 py-3 bg-primary text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
                                     >
-                                        {t}
+                                        View Plans
                                     </button>
-                                ))}
+                                </div>
+                                <p className="text-xs text-muted-foreground font-medium">
+                                    Interested in upgrading? View available plans and join our waitlist.
+                                </p>
                             </div>
                         </div>
 
@@ -222,6 +217,13 @@ export default function SettingsView({ user }: SettingsViewProps) {
                     </form>
                 </div>
             </div>
+
+            {/* Upgrade Modal */}
+            <UpgradeModal
+                isOpen={isUpgradeModalOpen}
+                onClose={() => setIsUpgradeModalOpen(false)}
+                currentPlan={tier}
+            />
         </div>
     );
 }

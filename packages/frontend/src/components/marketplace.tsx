@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Filter, Download, Check, Loader2, Bot, Zap, Star, Shield, Sparkles, Cpu, Box, Layers } from 'lucide-react';
+import { Search, Filter, Download, Check, Loader2, Bot, Zap, Star, Shield, Sparkles, Cpu, Box, Layers, ChevronLeft } from 'lucide-react';
 import { useAuth } from '@/components/auth-provider';
 
 interface AgentTemplate {
@@ -86,7 +86,7 @@ const templates: AgentTemplate[] = [
         id: 'research-sentinel',
         name: 'Deep Research Unit',
         description: 'Advanced web crawler and data synthesizer for deep-dive investigations.',
-        category: 'Intelligence',
+        category: 'Personal Assistance',
         framework: 'openclaw',
         icon: 'search',
         stats: { installs: '5k', rating: '4.9' },
@@ -184,7 +184,7 @@ export default function Marketplace({ projectId }: { projectId: string }) {
     // Helper to get all categories based on current filtered set (or all)
     // Actually simplicity: Just static list + dynamic?
     // Let's stick to a curated list for the filter bar
-    const categories = ['All', 'Marketing', 'Finance', 'Support', 'Personal Assistance', 'Intelligence'];
+    const categories = ['All', 'Marketing', 'Finance', 'Support', 'Personal Assistance'];
 
     if (selectedTemplate && setupStep >= 2) {
         return (
@@ -193,7 +193,7 @@ export default function Marketplace({ projectId }: { projectId: string }) {
                     onClick={() => { setSetupStep(1); setSelectedTemplate(null); }}
                     className="flex items-center gap-2 text-muted-foreground hover:text-white transition-colors font-bold text-sm uppercase tracking-widest"
                 >
-                    <Star size={16} className="rotate-180" /> Back to Templates
+                    <ChevronLeft size={16} /> Back to Blueprints
                 </button>
 
                 <div className="glass-card rounded-[3.5rem] p-10 md:p-16 relative overflow-hidden">
@@ -282,12 +282,23 @@ export default function Marketplace({ projectId }: { projectId: string }) {
                         <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-[10px] font-black uppercase tracking-widest">Available Functions</span>
                     </div>
                     <h2 className="text-4xl font-black tracking-tight mb-4">Functional <span className="text-transparent bg-clip-text bg-gradient-unicorn">Blueprints</span></h2>
-                    <p className="text-muted-foreground font-medium text-lg mb-8">Choose a specialized blueprint to jumpstart your agent's deployment. Each comes pre-loaded with industry-specific capabilities.</p>
+                    <p className="text-muted-foreground font-medium text-lg mb-8">Choose a specialized blueprint to jumpstart your agent's deployment.</p>
                 </div>
             </div>
 
             {/* Framework Toggle */}
-            <div className="flex justify-center">
+            <div className="flex justify-center flex-col md:flex-row gap-4">
+                <div className="relative w-full md:w-96 group">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search blueprints..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-white/5 border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all font-medium text-sm"
+                    />
+                </div>
+
                 <div className="p-1 rounded-2xl bg-white/5 border border-white/5 flex gap-1">
                     {[
                         { id: 'all', label: 'All Frameworks' },
@@ -310,16 +321,6 @@ export default function Marketplace({ projectId }: { projectId: string }) {
 
             {/* Toolbar */}
             <div className="flex flex-col md:flex-row gap-4 justify-center items-center">
-                <div className="relative w-full md:w-96 group">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground group-focus-within:text-primary transition-colors" size={18} />
-                    <input
-                        type="text"
-                        placeholder="Search blueprints..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full bg-white/5 border border-white/5 rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all font-medium text-sm"
-                    />
-                </div>
                 <div className="flex flex-wrap justify-center gap-2 p-1 bg-white/5 rounded-2xl border border-white/5">
                     {categories.map(cat => (
                         <button

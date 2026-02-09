@@ -9,14 +9,14 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 
-interface UpgradeWizardProps {
+interface SurveyFeedbackWizardProps {
     onClose: () => void;
-    plan: 'Pro' | 'Enterprise';
+    plan?: 'Pro' | 'Enterprise';
 }
 
 type Step = 'protocol' | 'survey' | 'feedback' | 'success';
 
-export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
+export default function SurveyFeedbackWizard({ onClose, plan }: SurveyFeedbackWizardProps) {
     const [step, setStep] = useState<Step>('protocol');
     const [surveyId, setSurveyId] = useState<string | null>(null);
     const [paymentMethod, setPaymentMethod] = useState<string | null>(null);
@@ -91,9 +91,9 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                     <Rocket size={48} className="animate-bounce" />
                 </div>
                 <div>
-                    <h2 className="text-4xl font-black tracking-tighter mb-4 text-white">Application Received!</h2>
+                    <h2 className="text-4xl font-black tracking-tighter mb-4 text-white">Thank You!</h2>
                     <p className="text-muted-foreground font-medium text-lg max-w-md mx-auto">
-                        Your architectural preferences have been synchronized. Our team will contact you via neural-link (email) once the next wave opens.
+                        Your feedback helps us build a better platform. We appreciate you taking the time to share your thoughts!
                     </p>
                 </div>
                 <button
@@ -112,20 +112,16 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
             <header>
                 <div className="flex items-center justify-between mb-4">
                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-                        <ShieldCheck size={14} className="text-primary" />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Beta Release Candidate</span>
+                        <Sparkles size={14} className="text-primary" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">Quick Survey</span>
                     </div>
                 </div>
                 <h2 className="text-4xl font-black tracking-tighter text-white">
-                    Apply for <span className="text-transparent bg-clip-text bg-gradient-unicorn">{plan}</span> Access
+                    Help Us <span className="text-transparent bg-clip-text bg-gradient-unicorn">Improve</span>
                 </h2>
-                <div className="mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex gap-4 items-start">
-                    <AlertCircle size={20} className="text-amber-500 shrink-0 mt-0.5" />
-                    <p className="text-xs font-medium text-amber-200/80 leading-relaxed">
-                        <span className="font-black uppercase tracking-widest block mb-1">Disclaimer</span>
-                        Blueprints is currently in active evolution. Plan features, computational limits, and values are subject to change as we scale. Your feedback directly shapes our final pricing model.
-                    </p>
-                </div>
+                <p className="mt-4 text-muted-foreground font-medium">
+                    Share your thoughts to help shape the future of the platform. Your feedback directly influences our roadmap.
+                </p>
             </header>
 
             {/* Step Content */}
@@ -133,8 +129,8 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                 {step === 'protocol' && (
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white">Preferred Payment Protocol</h3>
-                            <p className="text-sm text-muted-foreground">Select how you'd prefer to settle your architecture maintenance.</p>
+                            <h3 className="text-xl font-bold text-white">Preferred Payment Method</h3>
+                            <p className="text-sm text-muted-foreground">How would you prefer to pay for premium features?</p>
                         </div>
                         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                             {[
@@ -149,8 +145,8 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                                     key={method.id}
                                     onClick={() => setPaymentMethod(method.id)}
                                     className={`p-6 rounded-3xl border transition-all text-left group relative overflow-hidden ${paymentMethod === method.id
-                                            ? 'border-primary bg-primary/10'
-                                            : 'border-white/5 bg-white/5 hover:border-white/10'
+                                        ? 'border-primary bg-primary/10'
+                                        : 'border-white/5 bg-white/5 hover:border-white/10'
                                         }`}
                                 >
                                     <div className={`size-10 rounded-xl flex items-center justify-center mb-4 transition-colors ${paymentMethod === method.id ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'
@@ -168,8 +164,8 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                 {step === 'survey' && (
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white">Blueprint Pricing Survey</h3>
-                            <p className="text-sm text-muted-foreground">How do these proposed monthly tiers align with your expectations?</p>
+                            <h3 className="text-xl font-bold text-white">Pricing Feedback</h3>
+                            <p className="text-sm text-muted-foreground">Help us understand your pricing expectations for these tiers.</p>
                         </div>
                         <div className="space-y-3">
                             {[
@@ -194,8 +190,8 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                                                 key={opt.id}
                                                 onClick={() => setPricingFeedback(prev => ({ ...prev, [p.name]: opt.id as any }))}
                                                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${pricingFeedback[p.name] === opt.id
-                                                        ? 'bg-primary text-white'
-                                                        : 'bg-white/5 text-muted-foreground hover:bg-white/10'
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-white/5 text-muted-foreground hover:bg-white/10'
                                                     }`}
                                             >
                                                 {opt.label}
@@ -211,26 +207,32 @@ export default function UpgradeWizard({ onClose, plan }: UpgradeWizardProps) {
                 {step === 'feedback' && (
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="space-y-2">
-                            <h3 className="text-xl font-bold text-white">Final Intelligence Check</h3>
-                            <p className="text-sm text-muted-foreground">Any final thoughts on the platform's current trajectory or feature requests?</p>
+                            <h3 className="text-xl font-bold text-white">Additional Thoughts</h3>
+                            <p className="text-sm text-muted-foreground">Share any other feedback or suggestions you have for us.</p>
                         </div>
 
                         <div className="space-y-4">
-                            <label className="text-xs font-bold text-muted-foreground ml-1">Overall Experience Grade</label>
-                            <div className="flex gap-3">
-                                {[1, 2, 3, 4, 5].map((bot) => (
-                                    <button
-                                        key={bot}
-                                        type="button"
-                                        onClick={() => setRating(bot)}
-                                        className={`size-12 rounded-2xl flex items-center justify-center transition-all ${bot <= rating
+                            <label className="text-xs font-bold text-muted-foreground ml-1 uppercase tracking-widest">Overall Experience Grade</label>
+                            <div className="max-w-[328px]">
+                                <div className="flex gap-3">
+                                    {[1, 2, 3, 4, 5].map((val) => (
+                                        <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => setRating(val)}
+                                            className={`size-14 rounded-2xl flex items-center justify-center transition-all ${val <= rating
                                                 ? 'bg-primary text-white scale-110 shadow-lg shadow-primary/20'
-                                                : 'bg-white/5 text-muted-foreground/30 hover:bg-white/10'
-                                            }`}
-                                    >
-                                        <Bot size={24} />
-                                    </button>
-                                ))}
+                                                : 'bg-white/5 text-muted-foreground hover:bg-white/10 hover:text-white'
+                                                }`}
+                                        >
+                                            <Bot size={28} />
+                                        </button>
+                                    ))}
+                                </div>
+                                <div className="flex justify-between px-1 mt-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground/30">
+                                    <span>Poor</span>
+                                    <span>Excellent</span>
+                                </div>
                             </div>
                         </div>
 
