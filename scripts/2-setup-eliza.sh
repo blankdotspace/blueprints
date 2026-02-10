@@ -8,8 +8,8 @@ rm -rf "$TARGET_DIR"
 mkdir -p "$TARGET_DIR"
 
 # Copy Docker assets
-cp eliza.dockerfile "$TARGET_DIR/Dockerfile"
-cp eliza.entrypoint.sh "$TARGET_DIR/entrypoint.sh"
+cp ./scripts/eliza.dockerfile "$TARGET_DIR/Dockerfile"
+cp ./scripts/eliza.entrypoint.sh "$TARGET_DIR/entrypoint.sh"
 chmod +x "$TARGET_DIR/entrypoint.sh"
 
 echo "🐳 Building Docker image eliza:local..."
