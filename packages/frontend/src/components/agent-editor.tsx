@@ -6,7 +6,7 @@ import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, G
 interface AgentEditorProps {
     agent: any;
     actual: any;
-    onSave: (config: any) => Promise<void>;
+    onSave: (config: any, metadata?: any, name?: string) => Promise<void>;
     onClose: () => void;
 }
 
@@ -43,7 +43,7 @@ export default function AgentEditor({ agent, actual, onSave, onClose }: AgentEdi
     const handleSave = async () => {
         try {
             setSaving(true);
-            await onSave(config);
+            await onSave(config, null, config.name);
             onClose();
         } catch (err: any) {
             alert('Failed to save configuration: ' + err.message);

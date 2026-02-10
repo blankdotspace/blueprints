@@ -3,11 +3,11 @@
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { UserTier, SecurityLevel, resolveSecurityLevel, TIER_CONFIG } from '@eliza-manager/shared';
-import { Bot, Zap, Shield, Key, MessageSquare, ArrowRight, ArrowLeft, Check, Save, X, Loader2, Terminal, Cpu, Share2, Hash, Send, MessageCircle, Slack, ShieldCheck, Lock, Unlock } from 'lucide-react';
+import { Bot, Zap, Shield, Key, MessageSquare, ArrowRight, ArrowLeft, Check, Save, X, Loader2, Terminal, Cpu, Share2, Hash, Send, MessageCircle, Slack, ShieldCheck, Lock, Unlock, Plus, User, Activity } from 'lucide-react';
 
 interface OpenClawWizardProps {
     agent: any;
-    onSave: (config: any, metadata?: any) => Promise<void>;
+    onSave: (config: any, metadata?: any, name?: string) => Promise<void>;
     onClose: () => void;
 }
 
@@ -19,6 +19,10 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
     const [veniceModels, setVeniceModels] = useState<any[]>([]);
     const [fetchingModels, setFetchingModels] = useState(false);
     const [modelError, setModelError] = useState<string | null>(null);
+    const [jsonMode, setJsonMode] = useState(false);
+    const [pastedJson, setPastedJson] = useState('');
+    const [name, setName] = useState(agent.name || '');
+    const [avatar, setAvatar] = useState(getOne(agent.agent_desired_state)?.metadata?.avatar || '');
 
     // Tier & Security
     const supabase = createClient();
@@ -104,12 +108,13 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
     };
 
     const steps = [
-        { id: 1, title: 'Intelligence Provider', icon: <Zap size={20} /> },
-        { id: 2, title: 'Neural Credentials', icon: <Key size={20} /> },
-        { id: 3, title: 'Model Selection', icon: <Cpu size={20} />, hidden: config.provider !== 'venice' },
-        { id: 4, title: 'Permissions & Security', icon: <Shield size={20} /> },
-        { id: 5, title: 'Communication Channels', icon: <Share2 size={20} /> },
-        { id: 6, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
+        { id: 1, title: 'Neural Identity', icon: <User size={20} /> },
+        { id: 2, title: 'Intelligence Provider', icon: <Zap size={20} /> },
+        { id: 3, title: 'Neural Credentials', icon: <Key size={20} /> },
+        { id: 4, title: 'Model Selection', icon: <Cpu size={20} />, hidden: config.provider !== 'venice' },
+        { id: 5, title: 'Permissions & Security', icon: <Shield size={20} /> },
+        { id: 6, title: 'Communication Channels', icon: <Share2 size={20} /> },
+        { id: 7, title: 'Channel Configuration', icon: <MessageSquare size={20} /> },
     ].filter(s => !s.hidden);
 
     const handleSave = async () => {
@@ -211,12 +216,24 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                 }
             };
 
-            await onSave(finalConfig, { security_level: securityLevel });
+            await onSave(finalConfig, { security_level: securityLevel, avatar }, name);
             onClose();
         } catch (err) {
             console.error('Failed to save OpenClaw config:', err);
         } finally {
             setSaving(false);
+        }
+    };
+
+    const handleImportJson = () => {
+        try {
+            const parsed = JSON.parse(pastedJson);
+            // Derive config from parsed JSON
+            setConfig((prev: any) => ({ ...prev, ...parsed }));
+            setJsonMode(false); // Switch back to wizard populated with JSON data
+            // If the JSON had model info, etc, it will be reflected in later steps
+        } catch (err: any) {
+            alert('Invalid JSON: ' + err.message);
         }
     };
 
@@ -254,9 +271,94 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
 
                     <div className="min-h-[300px] animate-in slide-in-from-right-4 duration-300">
                         {step === 1 && (
+                            <div className="space-y-8">
+                                {!jsonMode ? (
+                                    <>
+                                        <div className="space-y-6">
+                                            <div className="flex flex-col gap-6 items-center">
+                                                <div className="size-32 rounded-3xl bg-white/5 border-4 border-white/10 overflow-hidden relative group/avatar shadow-2xl">
+                                                    {avatar ? (
+                                                        <img src={avatar} className="w-full h-full object-cover" alt="Agent Avatar" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center text-white/10 bg-gradient-to-br from-white/5 to-transparent">
+                                                            <User size={48} />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="w-full space-y-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-primary">Identity Callsign</label>
+                                                        <input
+                                                            type="text"
+                                                            value={name}
+                                                            onChange={(e) => setName(e.target.value)}
+                                                            className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 font-bold text-lg focus:border-primary outline-none transition-all placeholder:text-white/10"
+                                                            placeholder="Ghost in the Shell..."
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Avatar Visualization (URL)</label>
+                                                        <input
+                                                            type="text"
+                                                            value={avatar}
+                                                            onChange={(e) => setAvatar(e.target.value)}
+                                                            className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:border-primary outline-none transition-all placeholder:text-white/10"
+                                                            placeholder="https://images.unsplash.com/photo..."
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="relative py-4">
+                                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/5"></div></div>
+                                            <div className="relative flex justify-center text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground/30"><span className="bg-slate-950 px-4">OR</span></div>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setJsonMode(true)}
+                                            className="w-full p-6 rounded-3xl border border-dashed border-white/10 bg-white/[0.02] hover:bg-white/[0.05] transition-all flex items-center justify-center gap-4 group"
+                                        >
+                                            <Terminal size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                            <div className="text-left">
+                                                <h4 className="font-black text-[10px] uppercase tracking-widest text-muted-foreground group-hover:text-white transition-colors">Direct Matrix Injection</h4>
+                                                <p className="text-[10px] text-muted-foreground/40 font-medium italic">Paste raw OpenClaw JSON configuration</p>
+                                            </div>
+                                        </button>
+                                    </>
+                                ) : (
+                                    <div className="space-y-6">
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Matrix JSON</label>
+                                            <button onClick={() => setJsonMode(false)} className="text-[10px] font-black uppercase text-muted-foreground hover:text-white">Back to Wizard</button>
+                                        </div>
+                                        <textarea
+                                            value={pastedJson}
+                                            onChange={(e) => setPastedJson(e.target.value)}
+                                            rows={12}
+                                            className="w-full bg-black/40 border border-white/10 rounded-3xl p-6 font-mono text-[10px] focus:border-primary outline-none transition-all custom-scrollbar h-[350px]"
+                                            placeholder={`{
+  "auth": { ... },
+  "gateway": { ... },
+  "channels": { ... }
+}`}
+                                        />
+                                        <button
+                                            onClick={handleImportJson}
+                                            disabled={!pastedJson}
+                                            className="w-full py-4 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:opacity-90 active:scale-95 transition-all shadow-xl shadow-primary/20"
+                                        >
+                                            <Activity size={16} /> Synchronize Neural Matrix
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {step === 2 && (
                             <div className="space-y-6">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                    Choose the primary intelligence source for **{agent.name}**.
+                                    Choose the primary intelligence source for **{name || agent.name}**.
                                 </p>
                                 <div className="grid grid-cols-1 gap-4">
                                     {[
@@ -329,7 +431,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                             <div className="space-y-6">
                                 <div className="flex items-center justify-between">
                                     <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                        Select the neural model for **{agent.name}**.
+                                        Select the neural model for **{name || agent.name}**.
                                     </p>
                                     <button
                                         onClick={() => fetchVeniceModels(config.token)}
@@ -380,7 +482,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         {step === 4 && (
                             <div className="space-y-6">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                    Configure the operating privileges for **{agent.name}**. Higher levels require higher User Tiers.
+                                    Configure the operating privileges for **{name || agent.name}**. Higher levels require higher User Tiers.
                                 </p>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     {[
@@ -446,7 +548,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         {step === 5 && (
                             <div className="space-y-8">
                                 <p className="text-sm font-medium text-muted-foreground leading-relaxed">
-                                    Select which communication channels <strong>{agent.name}</strong> should be available on.
+                                    Select which communication channels <strong>{name || agent.name}</strong> should be available on.
                                 </p>
                                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                                     {[
@@ -553,10 +655,12 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         {step > 1 && (
                             <button
                                 onClick={() => {
-                                    if (step === 4 && config.provider !== 'venice') setStep(2);
+                                    if (step === 1) return; // Cannot go back from step 1
+                                    if (step === 5 && config.provider !== 'venice') setStep(3); // Adjust for Venice step
                                     else setStep(step - 1);
                                 }}
-                                className="px-8 py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+                                disabled={step === 1}
+                                className="px-8 py-4 rounded-2xl border border-white/10 hover:bg-white/5 transition-all font-black text-[10px] uppercase tracking-widest flex items-center gap-2 disabled:opacity-20"
                             >
                                 <ArrowLeft size={16} /> Back
                             </button>
@@ -564,18 +668,18 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                         {step < steps[steps.length - 1].id ? (
                             <button
                                 onClick={() => {
-                                    if (step === 2) {
+                                    if (step === 3) {
                                         if (config.provider === 'venice') {
                                             fetchVeniceModels(config.token);
-                                            setStep(3);
-                                        } else {
                                             setStep(4);
+                                        } else {
+                                            setStep(5);
                                         }
                                     } else {
                                         setStep(step + 1);
                                     }
                                 }}
-                                disabled={step === 2 && config.provider !== 'blueprint_shared' && !config.token}
+                                disabled={step === 3 && config.provider !== 'blueprint_shared' && !config.token}
                                 className="flex-1 py-4 rounded-2xl bg-white text-black hover:opacity-90 active:scale-95 transition-all font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 Continue <ArrowRight size={16} />

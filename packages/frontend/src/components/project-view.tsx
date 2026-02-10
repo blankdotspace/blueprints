@@ -333,11 +333,12 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
         }
     };
 
-    const saveAgentConfig = async (config: any, metadata?: any) => {
+    const saveAgentConfig = async (config: any, metadata?: any, name?: string) => {
         if (!editingAgent || !session?.access_token) return;
         try {
             const body: any = { config };
             if (metadata) body.metadata = metadata;
+            if (name) body.name = name;
 
             const res = await fetch(`${API_URL}/agents/${editingAgent.id}/config`, {
                 method: 'PATCH',

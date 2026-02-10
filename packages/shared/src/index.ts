@@ -123,6 +123,7 @@ export const UpdateAgentConfigSchema = z.object({
     enabled: z.boolean().optional(),
     config: z.record(z.any()).optional(),
     metadata: z.record(z.any()).optional(),
+    name: z.string().optional(),
     purge_at: z.string().nullable().optional(),
 });
 
