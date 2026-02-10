@@ -8,6 +8,34 @@ import { DOCKER_NETWORK_NAME, OPENCLAW_IMAGE, VPS_PUBLIC_IP } from '../lib/const
 import { cryptoUtils } from '../lib/crypto';
 import { UserTier, SecurityLevel, resolveSecurityLevel } from '@eliza-manager/shared';
 
+
+async function ensureCorrectPermissions(workspacePath: string) {
+    try {
+        const workspaceDir = path.resolve(workspacePath);
+        logger.info(`[PERM] Fixing permissions for ${workspaceDir}...`);
+
+        // Use a temporary busybox container to chown the directory
+        // This works even if the host worker doesn't have root privileges (via Docker)
+        const container = await docker.createContainer({
+            Image: 'busybox',
+            User: 'root',
+            name: `fix-perms-${Math.random().toString(36).substring(7)}`,
+            HostConfig: {
+                Binds: [`${workspaceDir}:/fix`],
+                AutoRemove: true
+            },
+            Cmd: ['chown', '-R', '1000:1000', '/fix']
+        });
+
+        await container.start();
+        logger.info(`[PERM] Started fix container. Waiting...`);
+        const waitResult = await container.wait();
+        logger.info(`[PERM] Fix finished. Status: ${JSON.stringify(waitResult)}`);
+    } catch (err: any) {
+        logger.warn(`[PERM] Failed to fix permissions for ${workspacePath}: ${err.message}`);
+    }
+}
+
 export async function startOpenClawAgent(agentId: string, config: any, metadata: any = {}, forceDoctor: boolean = false) {
     logger.info(`Starting OpenClaw agent ${agentId}...`);
 
@@ -32,7 +60,7 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
                 logger.info(`Container ${containerName} is already running. Syncing DB state.`);
 
                 // Ensure workspace and config file exist
-                const projectRoot = path.resolve(process.cwd(), (process.cwd().includes('packages') ? '../../' : './'));
+                const projectRoot = path.resolve(__dirname, '../../../../');
                 const workspacePath = path.resolve(projectRoot, 'workspaces', agentId);
                 const openclawDir = path.join(workspacePath, '.openclaw');
                 if (!fs.existsSync(openclawDir)) {
@@ -42,6 +70,21 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
                 if (!fs.existsSync(configPath)) {
                     logger.warn(`Config file ${configPath} missing for running container. Re-creating...`);
                     const decrypted = cryptoUtils.decryptConfig(config);
+
+                    // Enable chatCompletions if missing
+                    if (!decrypted.gateway?.http?.endpoints?.chatCompletions?.enabled) {
+                        decrypted.gateway = {
+                            ...(decrypted.gateway || {}),
+                            http: {
+                                ...(decrypted.gateway?.http || {}),
+                                endpoints: {
+                                    ...(decrypted.gateway?.http?.endpoints || {}),
+                                    chatCompletions: { enabled: true }
+                                }
+                            }
+                        };
+                    }
+
                     fs.writeFileSync(configPath, JSON.stringify(decrypted, null, 2));
                 }
 
@@ -60,39 +103,73 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
             // Container doesn't exist
         }
 
-        const projectRoot = path.resolve(process.cwd(), (process.cwd().includes('packages') ? '../../' : './'));
-        const workspacePath = path.resolve(projectRoot, 'workspaces', agentId);
+        const projectRoot = path.resolve(__dirname, '../../../../');
+
+        // Determine Workspace and Host path (Must be consistent)
+        const hostWorkspacesPath = process.env.HOST_WORKSPACES_PATH;
+        let workspaceRoot = path.resolve(projectRoot, 'workspaces');
+
+        if (hostWorkspacesPath) {
+            workspaceRoot = path.isAbsolute(hostWorkspacesPath)
+                ? hostWorkspacesPath
+                : path.resolve(projectRoot, hostWorkspacesPath);
+        }
+
+        const workspacePath = path.resolve(workspaceRoot, agentId);
         const openclawDir = path.join(workspacePath, '.openclaw');
 
         if (!fs.existsSync(openclawDir)) {
+            logger.info(`Creating openclaw directory at ${openclawDir}`);
             fs.mkdirSync(openclawDir, { recursive: true });
             try {
-                fs.chownSync(openclawDir, 1000, 1000); // Ensure node user owns the directory
+                fs.chmodSync(openclawDir, 0o700);
             } catch (e) {
-                logger.warn(`Failed to chown openclaw dir: ${e}`);
+                logger.warn(`Failed to set permissions on openclaw dir: ${e}`);
             }
         }
 
-        // Determine Host path for Docker (Must be absolute)
-        const hostWorkspacesPath = process.env.HOST_WORKSPACES_PATH;
-        let hostOpenclawDir = openclawDir;
-
-        if (hostWorkspacesPath) {
-            // Resolve relative to projectRoot always
-            const resolvedHostWorkspaces = path.isAbsolute(hostWorkspacesPath)
-                ? hostWorkspacesPath
-                : path.resolve(projectRoot, hostWorkspacesPath);
-            hostOpenclawDir = path.join(resolvedHostWorkspaces, agentId, '.openclaw');
-        }
+        const hostOpenclawDir = openclawDir; // Since they are now the same physical path
 
         const configPath = path.join(openclawDir, 'openclaw.json');
+        const workspaceSubdir = path.join(openclawDir, 'workspace');
+
+        if (!fs.existsSync(workspaceSubdir)) {
+            logger.info(`Creating openclaw workspace subdirectory at ${workspaceSubdir}`);
+            fs.mkdirSync(workspaceSubdir, { recursive: true });
+        }
+
+        // Explicitly set workspace to a subfolder to match user expectations
+        const internalWorkspace = '/home/node/.openclaw/workspace';
 
         const configWithDefaults = {
             ...config,
+            agents: {
+                ...(config.agents || {}),
+                defaults: {
+                    ...(config.agents?.defaults || {}),
+                    workspace: internalWorkspace
+                },
+                list: [
+                    {
+                        id: 'main',
+                        name: metadata.name || 'OpenClaw Agent',
+                        workspace: internalWorkspace
+                    }
+                ]
+            },
             gateway: {
                 ...(config.gateway || {}),
                 mode: 'local',
-                bind: 'lan'
+                bind: 'lan',
+                http: {
+                    ...(config.gateway?.http || {}),
+                    endpoints: {
+                        ...(config.gateway?.http?.endpoints || {}),
+                        chatCompletions: {
+                            enabled: true
+                        }
+                    }
+                }
             }
         };
 
@@ -111,11 +188,23 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
         delete configToWrite.blueprints_chat;
         delete configToWrite.metadata;
 
+        // Ensure Venice AI (and other OpenAI-compatible providers) use openai-responses
+        if (configToWrite.models?.providers) {
+            for (const provider of Object.values(configToWrite.models.providers) as any[]) {
+                if (provider.baseUrl?.includes('venice.ai') || provider.baseUrl?.includes('openai.com')) {
+                    if (provider.models) {
+                        for (const model of provider.models) {
+                            model.api = 'openai-completions';
+                        }
+                    }
+                }
+            }
+        }
+
         fs.writeFileSync(configPath, JSON.stringify(configToWrite, null, 2));
         try {
             // OpenClaw is sensitive to permissions (similar to SSH keys)
             // It may ignore configs that are group/world readable.
-            fs.chownSync(configPath, 1000, 1000);
             fs.chmodSync(configPath, 0o600); // -rw-------
 
             // Tighten the workspace directory too
@@ -124,6 +213,10 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
         } catch (e) {
             logger.warn(`Failed to set permissions on config: ${e}`);
         }
+
+        // Fix permissions recursively for the whole .openclaw dir on the host
+        // This handles cases where subfolders like 'agents' or 'identity' were created as root in previous runs
+        await ensureCorrectPermissions(openclawDir);
 
         const env = [
             `HOME=/home/node`,
@@ -161,25 +254,22 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
         const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel);
 
         // Apply Security Context
-        let user = '1000:1000';
+        let user = '1000:1000'; // Standardized to UID 1000 (node) for better host compatibility
         let capAdd: string[] = [];
-        let workingDir = '/home/node/.openclaw'; // Default for Sandbox
         const binds = [`${hostOpenclawDir}:/home/node/.openclaw`];
 
         switch (effectiveLevel) {
             case SecurityLevel.ROOT:
-                user = '0:0';
+                // user = '0:0'; // Removed to satisfy user request for 'node' user
                 capAdd = ['SYS_ADMIN', 'NET_ADMIN'];
-                logger.warn(`🚀 Agent ${agentId} starting in ROOT security level (User Tier: ${userTier})`);
+                logger.warn(`🚀 Agent ${agentId} starting in ROOT security level (running as node user)`);
                 break;
             case SecurityLevel.SYSADMIN:
-                user = '1000:1000';
                 capAdd = ['SYS_ADMIN'];
                 logger.info(`🛡️ Agent ${agentId} starting in SYSADMIN security level`);
                 break;
             case SecurityLevel.SANDBOX:
             default:
-                user = '1000:1000';
                 logger.info(`🔒 Agent ${agentId} starting in SANDBOX security level`);
                 break;
         }
@@ -251,6 +341,11 @@ export async function startOpenClawAgent(agentId: string, config: any, metadata:
 export async function stopOpenClawAgent(agentId: string) {
     const containerName = getAgentContainerName(agentId, 'openclaw');
     try {
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            status: 'stopping'
+        });
+
         const container = await docker.getContainer(containerName);
         console.log(`Stopping container ${containerName}...`);
         await container.stop();
@@ -266,6 +361,15 @@ export async function stopOpenClawAgent(agentId: string) {
         });
     } catch (err: any) {
         logger.warn(`Failed to stop OpenClaw agent ${agentId} (likely already stopped):`, err.message);
+        // Ensure we mark as stopped if the container is gone
+        if (err.message.includes('no such container') || err.message.includes('404')) {
+            await supabase.from('agent_actual_state').upsert({
+                agent_id: agentId,
+                status: 'stopped',
+                endpoint_url: null,
+                last_sync: new Date().toISOString()
+            });
+        }
     }
 }
 

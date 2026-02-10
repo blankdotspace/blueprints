@@ -111,11 +111,32 @@ export async function startElizaAgent(agentId: string, config: any) {
 export async function stopElizaAgent(agentId: string) {
     const containerName = getAgentContainerName(agentId, 'eliza');
     try {
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            status: 'stopping'
+        });
+
         const container = await docker.getContainer(containerName);
         await container.stop();
         await container.remove();
+
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            status: 'stopped',
+            endpoint_url: null,
+            last_sync: new Date().toISOString()
+        });
     } catch (err: any) {
         logger.warn(`Failed to stop Eliza agent ${agentId}:`, err.message);
+        // Ensure we mark as stopped if the container is gone
+        if (err.message.includes('no such container') || err.message.includes('404')) {
+            await supabase.from('agent_actual_state').upsert({
+                agent_id: agentId,
+                status: 'stopped',
+                endpoint_url: null,
+                last_sync: new Date().toISOString()
+            });
+        }
     }
 }
 

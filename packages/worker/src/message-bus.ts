@@ -94,54 +94,54 @@ export async function handleUserMessage(payload: any) {
             while (attempts < maxAttempts && !success) {
                 attempts++;
                 try {
-                    const res = await axios.post(`${agentUrl}/v1/chat/completions`, {
-                        model: 'openclaw',
-                        messages: [{ role: 'user', content }]
-                    }, {
+                    const res = await fetch(`${agentUrl}/v1/chat/completions`, {
+                        method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`,
-                            'x-openclaw-agent-id': agent_id,
-                            'Connection': 'close'
+                            'x-openclaw-agent-id': agent_id
                         },
-                        timeout: 120000
+                        body: JSON.stringify({
+                            model: 'openclaw',
+                            messages: [{ role: 'user', content }]
+                        }),
+                        signal: AbortSignal.timeout(120000)
                     });
 
-                    const result = res.data;
+                    if (!res.ok) {
+                        const errorText = await res.text();
+                        throw new Error(`HTTP ${res.status}: ${errorText}`);
+                    }
+
+                    const result: any = await res.json();
+                    logger.debug(`Message Bus: [${id}] OpenClaw raw response: ${JSON.stringify(result)}`);
                     agentResponseContent = result.choices?.[0]?.message?.content || agentResponseContent;
 
-                    if (agentResponseContent === 'No reply from agent.') {
-                        agentResponseContent = `[PROVIDER TIMEOUT]: ${agentResponseContent}`;
-                        logger.error(`Message Bus: [PROVIDER TIMEOUT] for agent ${agent_id}`);
+                    if (agentResponseContent === 'No reply from agent.' || agentResponseContent.includes('No response from OpenClaw')) {
+                        logger.error(`Message Bus: [${id}] [AGENT FAIL] Gateway returned: "${agentResponseContent}"`);
+                        logger.debug(`Message Bus: [${id}] [FULL DATA] ${JSON.stringify(result)}`);
                     }
 
                     success = true;
                 } catch (err: any) {
-                    const isConnRefused = err.code === 'ECONNREFUSED' || err.message?.includes('Unable to connect');
-                    const status = err.response?.status;
-                    const responseData = err.response?.data;
-                    const detailedError = responseData ? (typeof responseData === 'object' ? JSON.stringify(responseData) : responseData) : err.message;
+                    const isConnRefused = err.code === 'ECONNREFUSED' || err.message?.includes('Unable to connect') || err.message?.includes('Connection refused');
+                    const detailedError = err.message;
 
                     if (isConnRefused) {
                         if (attempts < maxAttempts) {
-                            logger.warn(`Message Bus: [TRANSPORT ERROR] Connection refused (Agent starting?). Retrying attempt ${attempts}/${maxAttempts} in 1s...`);
+                            logger.warn(`Message Bus: [TRANSPORT ERROR] Connection refused to ${agentUrl} (Agent starting?). Retrying attempt ${attempts}/${maxAttempts} in 1s...`);
                             await new Promise(resolve => setTimeout(resolve, 1000));
                         } else {
-                            logger.error(`Message Bus: [TRANSPORT ERROR] Failed to connect to agent at ${agentUrl} after ${attempts} attempts.`);
-                            agentResponseContent = `Error: Agent unreachable at ${agentUrl}`;
-                            break;
+                            logger.error(`Message Bus: [TRANSPORT ERROR] Connection refused to ${agentUrl} after ${maxAttempts} attempts. (Code: ${err.code})`);
+                            if (err.stack) logger.debug(err.stack);
+                            agentResponseContent = `[AGENT ERROR]: Connection refused to ${agentUrl}. Is the agent container running?`;
+                            success = true; // Stop retrying
                         }
                     } else {
-                        let label = '[AGENT ERROR]';
-                        if (status === 403 || status === 401) {
-                            label = '[AGENT GATEWAY ERROR]';
-                        } else if (detailedError.toLowerCase().includes('model') || detailedError.toLowerCase().includes('provider')) {
-                            label = '[PROVIDER ERROR]';
-                        }
-
-                        logger.error(`Message Bus: ${label} (Status: ${status || err.code}) on attempt ${attempts}. Details: ${detailedError}`);
-                        agentResponseContent = `${label}: ${detailedError}`;
-                        break;
+                        logger.error(`Message Bus: [AGENT ERROR] on attempt ${attempts}. Details: ${detailedError}. Agent URL: ${agentUrl}`);
+                        if (err.stack) logger.debug(err.stack);
+                        agentResponseContent = `[AGENT ERROR]: ${detailedError}`;
+                        success = true; // Stop retrying for non-connection errors
                     }
                 }
             }

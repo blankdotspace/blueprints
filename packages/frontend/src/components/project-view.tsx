@@ -43,6 +43,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
     });
     const [loadingAgents, setLoadingAgents] = useState<Set<string>>(new Set());
     const [purgingAgents, setPurgingAgents] = useState<Set<string>>(new Set());
+    const [isInstalling, setIsInstalling] = useState(false);
 
     const fetchProjectAndAgents = useCallback(async (isInitial = false) => {
         if (!session?.access_token) return;
@@ -68,7 +69,17 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             }
             const data = await res.json();
             // Filter out agents that are currently being purged to prevent flickering
-            setAgents(data.filter((a: any) => !purgingAgents.has(a.id)));
+            // Also filter out agents with a purge_at in the past
+            const filtered = data.filter((a: any) => {
+                if (purgingAgents.has(a.id)) return false;
+                const desired = Array.isArray(a.agent_desired_state) ? a.agent_desired_state[0] : a.agent_desired_state;
+                if (desired?.purge_at) {
+                    const purgeDate = new Date(desired.purge_at);
+                    if (purgeDate <= new Date()) return false;
+                }
+                return true;
+            });
+            setAgents(filtered);
         } catch (err: any) {
             setError(err.message);
         } finally {
@@ -102,7 +113,8 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
     }, []);
 
     const handleInstallAgent = async () => {
-        if (!newAgentName || !session?.access_token) return;
+        if (!newAgentName || !session?.access_token || isInstalling) return;
+        setIsInstalling(true);
         try {
             const res = await fetch(`${API_URL}/agents/project/${projectId}`, {
                 method: 'POST',
@@ -128,6 +140,8 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             onDataChange?.();
         } catch (err: any) {
             setError(err.message);
+        } finally {
+            setIsInstalling(false);
         }
     };
     const toggleAgent = async (agentId: string, enabled: boolean) => {
@@ -504,9 +518,10 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                             </button>
                             <button
                                 onClick={handleInstallAgent}
-                                className="flex-[2] py-4 rounded-2xl bg-primary text-white hover:opacity-90 active:scale-[0.98] transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20"
+                                disabled={isInstalling}
+                                className="flex-[2] py-4 rounded-2xl bg-primary text-white hover:opacity-90 active:scale-[0.98] transition-all font-black text-[10px] uppercase tracking-widest shadow-xl shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                Create Agent Instance
+                                {isInstalling ? <Loader2 size={16} className="animate-spin" /> : 'Create Agent Instance'}
                             </button>
                         </div>
                     </div>
@@ -608,10 +623,10 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                     <button
                                         disabled={actual.status === 'starting' || actual.status === 'stopping' || !!desired.purge_at}
                                         className={`size-14 rounded-2xl transition-all duration-300 flex items-center justify-center shadow-lg ${desired.purge_at
-                                                ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed'
-                                                : desired.enabled
-                                                    ? 'bg-destructive/10 text-destructive hover:bg-destructive shadow-destructive/20 hover:text-white'
-                                                    : 'bg-green-500/10 text-green-500 hover:bg-green-500 shadow-green-500/10 hover:text-white'
+                                            ? 'bg-muted/10 text-muted-foreground/30 cursor-not-allowed'
+                                            : desired.enabled
+                                                ? 'bg-destructive/10 text-destructive hover:bg-destructive shadow-destructive/20 hover:text-white'
+                                                : 'bg-green-500/10 text-green-500 hover:bg-green-500 shadow-green-500/10 hover:text-white'
                                             }`}
                                         title={
                                             desired.purge_at
