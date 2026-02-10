@@ -20,9 +20,48 @@ const availablePlugins = [
 
 export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWizardProps) {
     const getOne = (val: any) => (Array.isArray(val) ? val[0] : val);
-    const initialConfig = getOne(agent.agent_desired_state)?.config || {};
-    const [config, setConfig] = useState(initialConfig);
-    const [mode, setMode] = useState<'form' | 'json'>('form');
+    const existingConfig = getOne(agent.agent_desired_state)?.config;
+
+    // Default template based on user sample
+    const defaultTemplate = {
+        name: agent.name || "Eliza",
+        username: agent.name?.toLowerCase().replace(/\s+/g, '_') || "eliza_ai",
+        bio: [
+            "An advanced AI assistant powered by elizaOS",
+            "Specializes in technical support and creative problem-solving",
+            "Continuously learning and adapting to user needs",
+            "Built with privacy and security in mind"
+        ],
+        system: "You are Eliza, a helpful and knowledgeable AI assistant.\nCore principles:\n- Be helpful, harmless, and honest\n- Provide accurate, well-researched information\n- Admit uncertainty when appropriate\n- Respect user privacy and boundaries\n- Adapt your communication style to the user's needs",
+        adjectives: ["helpful", "knowledgeable", "patient", "creative", "professional"],
+        topics: ["programming", "web development", "artificial intelligence", "problem solving", "technology trends"],
+        messageExamples: [
+            [
+                { "name": "{{user}}", "content": { "text": "Hello!" } },
+                { "name": "Eliza", "content": { "text": "Hello! I'm Eliza, your AI assistant. How can I help you today?" } }
+            ]
+        ],
+        postExamples: [
+            "🚀 Just discovered an elegant solution to the N+1 query problem in GraphQL.",
+            "Clean code is not about being clever, it's about being clear."
+        ],
+        style: {
+            all: ["Be concise but comprehensive", "Use emoji sparingly"],
+            chat: ["Be conversational and engaging", "Use markdown for code"],
+            post: ["Be informative", "Include relevant hashtags"]
+        },
+        knowledge: [
+            "I'm built on the elizaOS framework"
+        ],
+        plugins: ["@elizaos/plugin-sql", "@elizaos/plugin-bootstrap"],
+        settings: {
+            secrets: {},
+            avatar: "https://elizaos.github.io/eliza-avatars/eliza.png"
+        }
+    };
+
+    const [config, setConfig] = useState(existingConfig && Object.keys(existingConfig).length > 0 ? existingConfig : defaultTemplate);
+    const [isJsonMode, setIsJsonMode] = useState(false);
     const [activeTab, setActiveTab] = useState<'profile' | 'behavior' | 'style' | 'plugins' | 'secrets' | 'logs'>('profile');
     const [saving, setSaving] = useState(false);
     const [jsonError, setJsonError] = useState<string | null>(null);
@@ -44,7 +83,20 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
     const handleSave = async () => {
         try {
             setSaving(true);
-            await onSave(config, null, config.name);
+
+            let finalConfig = config;
+            if (isJsonMode) {
+                try {
+                    finalConfig = JSON.parse(localJson);
+                    setConfig(finalConfig);
+                } catch (err: any) {
+                    setJsonError(err.message);
+                    setSaving(false);
+                    return;
+                }
+            }
+
+            await onSave(finalConfig, null, finalConfig.name);
             onClose();
         } catch (err: any) {
             alert('Failed to save configuration: ' + err.message);
@@ -171,8 +223,8 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
 
             <div className="bg-slate-950/80 border border-white/10 rounded-[3.5rem] w-full max-w-5xl max-h-[90vh] flex flex-col shadow-[0_32px_128px_-12px_rgba(0,0,0,0.8)] relative z-10 overflow-hidden animate-in zoom-in-95 duration-500">
                 {/* Visual Decorations */}
-                <div className="absolute -top-20 -right-20 size-64 bg-primary/10 rounded-full blur-[100px]" />
-                <div className="absolute -bottom-20 -left-20 size-64 bg-purple-500/10 rounded-full blur-[100px]" />
+                <div className="absolute -top-20 -right-20 size-64 bg-primary/10 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute -bottom-20 -left-20 size-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
 
                 {/* Header */}
                 <header className="p-10 border-b border-white/5 flex flex-col gap-8 bg-white/[0.02]">
@@ -197,24 +249,24 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
 
                         <div className="flex items-center gap-4 bg-white/5 p-1.5 rounded-[1.5rem] border border-white/5">
                             <button
-                                onClick={() => setMode('form')}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'form' ? 'bg-white text-black shadow-xl scale-105' : 'text-muted-foreground hover:text-white'}`}
+                                onClick={() => setIsJsonMode(false)}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${!isJsonMode ? 'bg-white text-black shadow-xl scale-105' : 'text-muted-foreground hover:text-white'}`}
                             >
                                 <Layout size={14} /> Interface
                             </button>
                             <button
                                 onClick={() => {
-                                    setMode('json');
                                     setLocalJson(JSON.stringify(config, null, 4));
+                                    setIsJsonMode(true);
                                 }}
-                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${mode === 'json' ? 'bg-white text-black shadow-xl scale-105' : 'text-muted-foreground hover:text-white'}`}
+                                className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${isJsonMode ? 'bg-white text-black shadow-xl scale-105' : 'text-muted-foreground hover:text-white'}`}
                             >
                                 <Code size={14} /> Source
                             </button>
                         </div>
                     </div>
 
-                    {mode === 'form' && (
+                    {!isJsonMode && (
                         <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 self-start">
                             {[
                                 { id: 'profile', label: 'Identity', icon: <User size={14} /> },
@@ -238,7 +290,7 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
 
                 {/* Content */}
                 <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-black/20">
-                    {mode === 'form' ? (
+                    {!isJsonMode ? (
                         <div className="max-w-4xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
                             {activeTab === 'profile' && (
                                 <div className="space-y-12">
@@ -342,7 +394,7 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                     </section>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                         {renderArraySection('Bio Summary', 'bio', <User size={16} className="text-primary" />, 'Defining trait...', 'primary')}
-                                        {renderArraySection('Lore Records', 'lore', <Database size={16} className="text-indigo-400" />, 'Historical data...', 'indigo-500')}
+                                        {renderArraySection('Knowledge Base', 'knowledge', <Database size={16} className="text-indigo-400" />, 'Information segment...', 'indigo-500')}
                                     </div>
                                 </div>
                             )}
@@ -573,13 +625,6 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                     className={`w-full h-full font-mono text-[11px] p-8 rounded-[2.5rem] border bg-black/40 text-emerald-400 focus:outline-none custom-scrollbar transition-all ${jsonError ? 'border-destructive/50 ring-1 ring-destructive/20' : 'border-white/5 focus:border-primary/30'}`}
                                     spellCheck={false}
                                 />
-                                <button
-                                    onClick={handleSyncJson}
-                                    disabled={!!jsonError || !localJson}
-                                    className="absolute bottom-6 right-6 px-6 py-3 rounded-2xl bg-primary text-white font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-all disabled:opacity-0 disabled:scale-90"
-                                >
-                                    <Activity size={14} /> Synchronize Matrix
-                                </button>
                             </div>
                         </div>
                     )}
