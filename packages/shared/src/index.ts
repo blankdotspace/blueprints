@@ -1,5 +1,14 @@
 import { z } from 'zod';
 
+export const OPENAI_ALLOWED_MODELS = new Set([
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4.1-mini",
+    "gpt-4.1",
+    "o1",
+    "o1-pro"
+]);
+
 // --- Tier & Security Architecture ---
 
 export enum UserTier {
@@ -10,31 +19,32 @@ export enum UserTier {
 }
 
 export enum SecurityLevel {
-    SANDBOX = 0,    // Standard isolation
-    SYSADMIN = 1,   // SYS_ADMIN capability
-    ROOT = 2        // Host Network, Root User
+    STANDARD = 0,    // Standard isolation
+    ADVANCED = 1,   // Advanced isolation
+    PRO = 2,        // SYS_ADMIN capability
+    ROOT = 10        // Host Network, Root User
 }
 
 export const TIER_CONFIG = {
     [UserTier.FREE]: {
         maxProjects: 1,
         maxAgents: 2,
-        maxSecurityLevel: SecurityLevel.SANDBOX
+        maxSecurityLevel: SecurityLevel.STANDARD
     },
     [UserTier.PRO]: {
         maxProjects: 3,
         maxAgents: 3,
-        maxSecurityLevel: SecurityLevel.SYSADMIN
+        maxSecurityLevel: SecurityLevel.ADVANCED
     },
     [UserTier.CUSTOM]: {
         maxProjects: 10,
         maxAgents: 10,
-        maxSecurityLevel: SecurityLevel.ROOT
+        maxSecurityLevel: SecurityLevel.PRO
     },
     [UserTier.ENTERPRISE]: {
         maxProjects: Infinity,
         maxAgents: Infinity,
-        maxSecurityLevel: SecurityLevel.ROOT
+        maxSecurityLevel: SecurityLevel.PRO
     }
 };
 

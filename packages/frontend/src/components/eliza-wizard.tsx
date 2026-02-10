@@ -606,25 +606,24 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                             )}
                         </div>
                     ) : (
-                        <div className="h-full flex flex-col space-y-6 animate-in fade-in duration-500">
-                            <div className="flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Neural Matrix JSON</span>
-                                    <p className="text-[10px] text-muted-foreground/40 font-medium">Direct segment injection for advanced orchestrators.</p>
-                                </div>
-                                {jsonError && (
-                                    <span className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-[10px] font-bold flex items-center gap-2 border border-destructive/20">
-                                        <X size={12} /> {jsonError}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex-1 min-h-[450px] relative group">
+                        <div className="h-full flex flex-col animate-in fade-in duration-500">
+                            <div className="flex-1 min-h-[420px] relative group">
                                 <textarea
+                                    id="eliza-matrix-json"
                                     value={localJson}
                                     onChange={(e) => handleJsonChange(e.target.value)}
-                                    className={`w-full h-full font-mono text-[11px] p-8 rounded-[2.5rem] border bg-black/40 text-emerald-400 focus:outline-none custom-scrollbar transition-all ${jsonError ? 'border-destructive/50 ring-1 ring-destructive/20' : 'border-white/5 focus:border-primary/30'}`}
+                                    className={`w-full h-full min-h-[420px] font-mono text-[11px] p-2 rounded-[2.5rem] border bg-black/40 text-emerald-400 focus:outline-none custom-scrollbar transition-all ${jsonError ? 'border-destructive/50 ring-1 ring-destructive/20' : 'border-white/5 focus:border-primary/30'}`}
                                     spellCheck={false}
                                 />
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <div className="">
+                                    {jsonError && (
+                                        <span className="rounded-full bg-destructive/10 text-destructive text-[10px] font-bold flex items-center gap-2 border border-destructive/20">
+                                            <X size={12} /> {jsonError}
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

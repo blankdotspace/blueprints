@@ -45,6 +45,7 @@ export async function startOpenClawAgent(
         const homeDir = path.join(workspacePath, 'home');
 
         fs.mkdirSync(homeDir, { recursive: true });
+        fs.mkdirSync(path.join(homeDir, '.openclaw', 'workspace'), { recursive: true });
 
         const configPath = path.join(homeDir, '.openclaw', 'openclaw.json');
         fs.mkdirSync(path.dirname(configPath), { recursive: true });
@@ -84,8 +85,10 @@ export async function startOpenClawAgent(
         const env = [
             `HOME=/home/node`,
             `OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json`,
-            `OPENCLAW_GATEWAY_MODE=local`
+            `OPENCLAW_GATEWAY_MODE=local`,
+            `OPENCLAW_WORKSPACE_DIR=/home/node/.openclaw/workspace`
         ];
+
 
         if (finalConfig.gateway?.auth?.token) {
             env.push(`OPENCLAW_GATEWAY_TOKEN=${finalConfig.gateway.auth.token}`);
@@ -98,13 +101,32 @@ export async function startOpenClawAgent(
             .single();
 
         const userTier = (data?.projects as any)?.tier ?? UserTier.FREE;
-        const requestedLevel = metadata?.security_level || SecurityLevel.SANDBOX;
+        const requestedLevel = metadata?.security_level || SecurityLevel.STANDARD;
         const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel);
 
         let capAdd: string[] = [];
+        let readonlyRoot = true;
+        let user = 'node';
 
-        if (effectiveLevel === SecurityLevel.ROOT) capAdd = ['SYS_ADMIN', 'NET_ADMIN'];
-        if (effectiveLevel === SecurityLevel.SYSADMIN) capAdd = ['SYS_ADMIN'];
+        switch (effectiveLevel) {
+            case SecurityLevel.STANDARD:
+                readonlyRoot = true;
+                capAdd = [];
+                user = 'node';
+                break;
+
+            case SecurityLevel.PRO:
+                readonlyRoot = true;
+                capAdd = ['SYS_ADMIN'];
+                user = 'node';
+                break;
+
+            case SecurityLevel.ADVANCED:
+                readonlyRoot = false;
+                capAdd = ['SYS_ADMIN', 'NET_ADMIN'];
+                user = 'root';
+                break;
+        }
 
         try {
             await docker.inspectImage(OPENCLAW_IMAGE);
@@ -133,8 +155,20 @@ export async function startOpenClawAgent(
                 Binds: [`${homeDir}:/home/node`],
                 PortBindings: { '18789/tcp': [{ HostPort: hostPort.toString() }] },
                 RestartPolicy: { Name: 'unless-stopped' },
+
                 CapAdd: capAdd,
-                ReadonlyRootfs: effectiveLevel === SecurityLevel.SANDBOX
+                CapDrop: effectiveLevel === SecurityLevel.STANDARD ? ['ALL'] : undefined,
+
+                ReadonlyRootfs: readonlyRoot,
+                User: user,
+
+                SecurityOpt: effectiveLevel === SecurityLevel.STANDARD
+                    ? ['no-new-privileges']
+                    : undefined,
+
+                Tmpfs: effectiveLevel === SecurityLevel.STANDARD
+                    ? { '/tmp': 'rw,noexec,nosuid,size=64m' }
+                    : undefined
             },
             NetworkingConfig: {
                 EndpointsConfig: { [DOCKER_NETWORK_NAME]: {} }
@@ -191,5 +225,41 @@ export async function runTerminalCommand(agentId: string, command: string): Prom
     } catch (err: any) {
         logger.error(`Terminal Error for ${agentId}:`, err.message);
         return `Error: ${err.message}`;
+    }
+}
+
+
+export async function stopOpenClawAgent(agentId: string) {
+    const containerName = getAgentContainerName(agentId, 'openclaw');
+    try {
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            status: 'stopping'
+        });
+
+        const container = await docker.getContainer(containerName);
+        console.log(`Stopping container ${containerName}...`);
+        await container.stop();
+        console.log(`Removing container ${containerName}...`);
+        await container.remove();
+        logger.info(`OpenClaw agent ${agentId} stopped and container removed.`);
+
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            status: 'stopped',
+            endpoint_url: null,
+            last_sync: new Date().toISOString()
+        });
+    } catch (err: any) {
+        logger.warn(`Failed to stop OpenClaw agent ${agentId} (likely already stopped):`, err.message);
+        // Ensure we mark as stopped if the container is gone
+        if (err.message.includes('no such container') || err.message.includes('404')) {
+            await supabase.from('agent_actual_state').upsert({
+                agent_id: agentId,
+                status: 'stopped',
+                endpoint_url: null,
+                last_sync: new Date().toISOString()
+            });
+        }
     }
 }
