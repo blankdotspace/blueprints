@@ -35,19 +35,20 @@ export async function startOpenClawAgent(
             await existing.remove();
         } catch { }
 
-        const projectRoot = path.resolve(process.cwd(), process.cwd().includes('packages') ? '../../' : './');
+        const agentsDataContainerPath = process.env.AGENTS_DATA_CONTAINER_PATH;
+        const agentsDataHostPath = process.env.AGENTS_DATA_HOST_PATH;
 
-        const workspaceRoot = process.env.HOST_WORKSPACES_PATH
-            ? path.resolve(projectRoot, process.env.HOST_WORKSPACES_PATH)
-            : path.resolve(projectRoot, 'workspaces');
+        if (!agentsDataContainerPath || !agentsDataHostPath) {
+            throw new Error("AGENTS_DATA_CONTAINER_PATH or AGENTS_DATA_HOST_PATH not defined");
+        }
 
-        const workspacePath = path.join(workspaceRoot, agentId);
-        const homeDir = path.join(workspacePath, 'home');
+        const agentRootPath = path.join(agentsDataContainerPath, agentId);
+        const homeDir = path.join(agentRootPath, 'home');
 
         fs.mkdirSync(homeDir, { recursive: true });
-        fs.mkdirSync(path.join(homeDir, '.openclaw', 'workspace'), { recursive: true });
+        fs.mkdirSync(path.join(homeDir, 'workspace'), { recursive: true });
 
-        const configPath = path.join(homeDir, '.openclaw', 'openclaw.json');
+        const configPath = path.join(homeDir, 'openclaw.json');
         fs.mkdirSync(path.dirname(configPath), { recursive: true });
 
         const configWithDefaults = {
@@ -83,10 +84,10 @@ export async function startOpenClawAgent(
         fs.writeFileSync(configPath, JSON.stringify(configToWrite, null, 2));
 
         const env = [
-            `HOME=/home/node`,
-            `OPENCLAW_CONFIG_PATH=/home/node/.openclaw/openclaw.json`,
+            `HOME=/agent-home`,
+            `OPENCLAW_CONFIG_PATH=/agent-home/openclaw.json`,
             `OPENCLAW_GATEWAY_MODE=local`,
-            `OPENCLAW_WORKSPACE_DIR=/home/node/.openclaw/workspace`
+            `OPENCLAW_WORKSPACE_DIR=/agent-home/workspace`
         ];
 
 
@@ -158,7 +159,7 @@ export async function startOpenClawAgent(
             Cmd: cmd,
             ExposedPorts: { '18789/tcp': {} },
             HostConfig: {
-                Binds: [`${homeDir}:/home/node`],
+                Binds: [`${path.join(agentsDataHostPath, agentId, 'home')}:/agent-home`],
                 PortBindings: { '18789/tcp': [{ HostPort: hostPort.toString(), HostIp: '127.0.0.1' }] },
                 RestartPolicy: { Name: 'unless-stopped' },
 
@@ -223,7 +224,7 @@ export async function runTerminalCommand(agentId: string, command: string): Prom
             AttachStdout: true,
             AttachStderr: true,
             Tty: true,
-            WorkingDir: '/home/node',
+            WorkingDir: '/agent-home',
             Cmd: ['sh', '-c', command]
         });
 

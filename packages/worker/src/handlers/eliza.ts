@@ -7,11 +7,18 @@ import { getAgentContainerName, renameKey } from '../lib/utils';
 import { DOCKER_NETWORK_NAME, ELIZA_IMAGE_BASE } from '../lib/constants';
 import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
-function getAgentWorkspace(agentId: string) {
-    const root = process.env.HOST_WORKSPACES_PATH;
-    if (!root) throw new Error('HOST_WORKSPACES_PATH not set');
+function getAgentContainerPath(agentId: string) {
+    const root = process.env.AGENTS_DATA_CONTAINER_PATH;
+    if (!root) throw new Error('AGENTS_DATA_CONTAINER_PATH not set');
 
-    return path.join(root, 'workspaces', agentId);
+    return path.join(root, agentId);
+}
+
+function getAgentHostPath(agentId: string) {
+    const root = process.env.AGENTS_DATA_HOST_PATH;
+    if (!root) throw new Error('AGENTS_DATA_HOST_PATH not set');
+
+    return path.join(root, agentId);
 }
 
 export async function startElizaAgent(agentId: string, config: any) {
@@ -39,11 +46,12 @@ export async function startElizaAgent(agentId: string, config: any) {
     const decrypted = cryptoUtils.decryptConfig(config);
     const finalConfig = renameKey(decrypted, 'lore', 'knowledge');
 
-    // === shared workspace ===
-    const agentWorkspace = getAgentWorkspace(agentId);
-    fs.mkdirSync(agentWorkspace, { recursive: true });
+    // === agent home ===
+    const agentContainerRoot = getAgentContainerPath(agentId);
+    const agentHome = path.join(agentContainerRoot, 'home');
+    fs.mkdirSync(agentHome, { recursive: true });
 
-    const characterPath = path.join(agentWorkspace, 'character.json');
+    const characterPath = path.join(agentHome, 'character.json');
     fs.writeFileSync(characterPath, JSON.stringify(finalConfig, null, 2));
 
     // Ensure image
@@ -61,14 +69,17 @@ export async function startElizaAgent(agentId: string, config: any) {
         Cmd: [
             'elizaos',
             'start',
-            `/agents/${agentId}/character.json`
+            '/agent-home/character.json'
         ],
 
-        Env: [`AGENT_ID=${agentId}`],
+        Env: [
+            `AGENT_ID=${agentId}`,
+            `HOME=/agent-home`
+        ],
 
         HostConfig: {
             Binds: [
-                `${agentWorkspace}:/agents/${agentId}`
+                `${path.join(getAgentHostPath(agentId), 'home')}:/agent-home`
             ],
             RestartPolicy: { Name: 'unless-stopped' }
         },
@@ -97,8 +108,8 @@ export async function hotReloadEliza(agentId: string, config: any) {
     const decrypted = cryptoUtils.decryptConfig(config);
     const finalConfig = renameKey(decrypted, 'lore', 'knowledge');
 
-    const agentWorkspace = getAgentWorkspace(agentId);
-    const characterPath = path.join(agentWorkspace, 'character.json');
+    const agentHome = path.join(getAgentContainerPath(agentId), 'home');
+    const characterPath = path.join(agentHome, 'character.json');
 
     fs.writeFileSync(characterPath, JSON.stringify(finalConfig, null, 2));
 

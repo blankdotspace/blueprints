@@ -6,12 +6,12 @@ This guide documents how communication between the `worker` and `OpenClaw` agent
 
 The worker manages agent workspaces on the host and mounts them into the containers.
 
-**Host Path**: `packages/worker/workspaces/<agent-id>/.openclaw`
-**Container Path**: `/home/node/.openclaw`
+**Host Path**: `/var/lib/blueprints/agents-data/<agent-id>/home`
+**Container Path**: `/agent-home`
 
 ### Common Issues:
 - **Permission Denied (EACCES)**: If the host directory is created by a process with higher privileges (e.g., `root`), the worker (running as user `adam`) cannot write the `openclaw.json`.
-- **Path Mismatch**: If `HOST_WORKSPACES_PATH` in `.env` doesn't match the absolute path resolution in `openclaw.ts`, the container might mount an empty or incorrect directory.
+- **Path Mismatch**: If `AGENTS_DATA_HOST_PATH` or `AGENTS_DATA_CONTAINER_PATH` in `.env` doesn't match the volume definitions, the container might mount an empty or incorrect directory.
 
 **Fix**:
 ```bash
@@ -49,7 +49,7 @@ Agents run in a dedicated Docker network (usually `blueprints-network`).
 1. **Check Worker Logs**: Look for `EACCES` or SQL errors.
 2. **Inspect Container Config**:
    ```bash
-   docker exec <container-name> cat /home/node/.openclaw/openclaw.json
+   docker exec <container-name> cat /agent-home/openclaw.json
    ```
 3. **Verify Gateway Status**:
    ```bash

@@ -10,9 +10,9 @@ Low	node:node (1000)	None	Strict sandbox (default)
 Pro	node:node (1000)	SYS_ADMIN	Elevated sandbox for technical tasks
 Custom	root (0)	Full	Root mode for unrestricted access
 Docker Volume Path Fixes
-Standardized projectRoot resolution across all handlers to prevent nested directory duplication.
-Ensured Docker volume binds always use absolute paths, resolving the invalid characters for a local volume name error.
-Verified that HOST_WORKSPACES_PATH is correctly resolved relative to the monorepo root.
+Standardized path resolution using `AGENTS_DATA_HOST_PATH` and `AGENTS_DATA_CONTAINER_PATH` to separate host vs container contexts.
+Ensured Docker volume binds always use host-absolute paths, preventing ambiguity.
+Verified that `AGENTS_DATA_CONTAINER_PATH` is used for internal worker file operations.
 Docker Helper Enhancements
 Added 
 inspectImage
@@ -31,7 +31,7 @@ low: User 1000:1000, no special caps.
 pro: User 1000:1000, CapAdd: [SYS_ADMIN].
 custom: User 0:0.
 Path Resolution
-Verified that workspaces are created at the expected location: [project-root]/packages/worker/workspaces/[agent-id]/.openclaw And mounted correctly as absolute paths to the containers.
+Verified that workspaces are created at the expected location: `/mnt/agents-data/[agent-id]/home` (inside worker) which maps to `/var/lib/blueprints/agents-data/[agent-id]/home` on the host. Mounted correctly as `/agent-home` in the containers.
 
 Health & Diagnostics
 Running 
