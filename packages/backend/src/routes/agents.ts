@@ -120,14 +120,30 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
         const initialConfig = configTemplate || (framework === 'openclaw' ? {
             auth: {
                 profiles: {
-                    default: { provider: 'anthropic', mode: 'api_key', token: '' }
+                    default: { provider: 'venice', mode: 'api_key', token: '' }
                 }
             },
             gateway: {
                 auth: { mode: 'token', token: Buffer.from(Math.random().toString()).toString('base64').substring(0, 16) }
             },
             agents: {
-                defaults: { workspace: '/home/node/.openclaw' }
+                defaults: {
+                    workspace: "~/.openclaw/workspace",
+                    maxConcurrent: 4,
+                    subagents: {
+                        maxConcurrent: 4
+                    },
+                    compaction: {
+                        mode: "safeguard"
+                    },
+                },
+                list: [
+                    {
+                        id: "main",
+                        name,
+                        workspace: "~/.openclaw/workspace"
+                    }
+                ]
             }
         } : {
             name,

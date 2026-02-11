@@ -6,7 +6,7 @@
 # Configuration
 REPO_DIR="/opt/blueprints"
 SERVICE_NAME="worker"
-LOG_FILE="/var/log/blueprints-deploy.log"
+LOG_FILE="/opt/blueprints/blueprints-deploy.log"
 
 # Ensure Bun is in PATH (common locations)
 export PATH=$PATH:/root/.bun/bin:/usr/local/bin:/home/ubuntu/.bun/bin:/home/debian/.bun/bin:/home/ricardo/.bun/bin:/home/adam/.bun/bin
