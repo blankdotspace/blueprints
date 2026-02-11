@@ -159,7 +159,7 @@ export async function startOpenClawAgent(
             ExposedPorts: { '18789/tcp': {} },
             HostConfig: {
                 Binds: [`${homeDir}:/home/node`],
-                PortBindings: { '18789/tcp': [{ HostPort: hostPort.toString() }] },
+                PortBindings: { '18789/tcp': [{ HostPort: hostPort.toString(), HostIp: '127.0.0.1' }] },
                 RestartPolicy: { Name: 'unless-stopped' },
 
                 CapAdd: capAdd,
