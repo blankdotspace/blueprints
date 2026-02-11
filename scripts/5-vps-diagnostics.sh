@@ -124,9 +124,9 @@ else
     echo -e "${BLUE}Detected Networks:${NC}"
     docker inspect $WORKER_CONTAINER --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}}: {{.IPAddress}}{{end}}'
     echo -e "${BLUE}Key Environment Variables:${NC}"
-    docker inspect $WORKER_CONTAINER --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E "HOST_WORKSPACES_PATH|DOCKER_NETWORK_NAME|OPENCLAW"
-    echo -e "${BLUE}Workspaces Mounts:${NC}"
-    docker inspect $WORKER_CONTAINER --format '{{range .Mounts}}SRC: {{.Source}} -> DST: {{.Destination}} (RW: {{.RW}}){{println}}{{end}}' | grep workspaces
+    docker inspect $WORKER_CONTAINER --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E "AGENTS_DATA_|DOCKER_NETWORK_NAME|OPENCLAW"
+    echo -e "${BLUE}Agents Data Mounts:${NC}"
+    docker inspect $WORKER_CONTAINER --format '{{range .Mounts}}SRC: {{.Source}} -> DST: {{.Destination}} (RW: {{.RW}}){{println}}{{end}}' | grep agents-data
 fi
 
 pause

@@ -5,8 +5,8 @@ services:
       dockerfile: packages/worker/Dockerfile
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ./workspaces:/app/workspaces
-    env_file: .env
+      - /var/lib/blueprints/agents-data:/mnt/agents-data
+    env_file: packages/worker/.env
     restart: unless-stopped
 
 networks:
