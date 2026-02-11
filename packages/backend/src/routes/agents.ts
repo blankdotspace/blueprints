@@ -1,5 +1,6 @@
 import { FastifyPluginAsync } from 'fastify';
 import { UpdateAgentConfigSchema, CreateAgentSchema, UserTier, TIER_CONFIG } from '@eliza-manager/shared';
+import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
 const agentRoutes: FastifyPluginAsync = async (fastify) => {
 
@@ -159,7 +160,7 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
             .insert([{
                 agent_id: agent.id,
                 enabled: false,
-                config: initialConfig,
+                config: cryptoUtils.encryptConfig(initialConfig),
                 metadata: metadata || {}
             }]);
 
@@ -198,7 +199,7 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
 
         const updates: any = { updated_at: new Date().toISOString() };
         if (enabled !== undefined) updates.enabled = enabled;
-        if (config !== undefined) updates.config = config;
+        if (config !== undefined) updates.config = cryptoUtils.encryptConfig(config);
         if (metadata !== undefined) updates.metadata = metadata;
         if (purge_at !== undefined) {
             fastify.log.debug({ agentId, purge_at }, 'Processing purge_at update');

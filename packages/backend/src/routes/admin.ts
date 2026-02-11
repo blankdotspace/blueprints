@@ -1,4 +1,5 @@
 import { FastifyPluginAsync } from 'fastify';
+import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
 const adminRoutes: FastifyPluginAsync = async (fastify) => {
     // Apply admin guard to all routes in this prefix
@@ -297,12 +298,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             .insert([{
                 agent_id: agent.id,
                 enabled: true,
-                config: {
+                config: cryptoUtils.encryptConfig({
                     metadata: { security_tier: 'custom' },
                     agents: { defaults: { workspace: '/root/.openclaw' } },
                     auth: { profiles: { default: { provider: 'anthropic', mode: 'api_key', token: '' } } },
                     gateway: { auth: { mode: 'token', token: 'ADMIN_SECRET_' + Math.random().toString(36).substring(7) } }
-                }
+                })
             }]);
 
         if (stateError) throw stateError;

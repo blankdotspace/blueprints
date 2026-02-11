@@ -5,7 +5,7 @@ import { logger } from '../lib/logger';
 import { docker } from '../lib/docker';
 import { getAgentContainerName, renameKey } from '../lib/utils';
 import { DOCKER_NETWORK_NAME, ELIZA_IMAGE_BASE } from '../lib/constants';
-import { cryptoUtils } from '../lib/crypto';
+import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
 function getAgentWorkspace(agentId: string) {
     const root = process.env.HOST_WORKSPACES_PATH;

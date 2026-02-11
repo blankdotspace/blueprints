@@ -5,7 +5,7 @@ import { logger } from '../lib/logger';
 import { docker } from '../lib/docker';
 import { getAgentContainerName, sanitizeConfig } from '../lib/utils';
 import { DOCKER_NETWORK_NAME, OPENCLAW_IMAGE, VPS_PUBLIC_IP } from '../lib/constants';
-import { cryptoUtils } from '../lib/crypto';
+import { cryptoUtils } from '@eliza-manager/shared/crypto';
 import { UserTier, SecurityLevel, resolveSecurityLevel } from '@eliza-manager/shared';
 
 export async function startOpenClawAgent(

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import { supabase } from './lib/supabase';
 import { logger } from './lib/logger';
-import { cryptoUtils } from './lib/crypto';
+import { cryptoUtils } from '@eliza-manager/shared/crypto';
 import { runTerminalCommand as runOpenClawTerminal } from './handlers/openclaw';
 import { runElizaCommand } from './handlers/eliza';
 

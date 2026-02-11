@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+// Note: crypto.ts is NOT exported here because it uses Node.js crypto module
+// Backend and worker should import directly: import { cryptoUtils } from '@eliza-manager/shared/crypto'
+
+
+
 export const OPENAI_ALLOWED_MODELS = new Set([
     "gpt-4o-mini",
     "gpt-4o",
