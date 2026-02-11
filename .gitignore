@@ -37,3 +37,4 @@ workspaces/
 *.tsbuildinfo
 .agent/skills/ssh-server.md
 
+packages/worker/openclaw/
