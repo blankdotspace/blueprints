@@ -168,3 +168,51 @@ bun run lint
 ## Documentation
 
 - [OpenClaw Integration Walkthrough](docs/openclaw-integration.md)
+
+
+
+---
+
+## System Maintenance & Rebuilding
+
+After making changes to the source code or configurations, follow these steps to ensure all components are properly rebuilt and updated.
+
+### 1. Rebuild the Worker
+If you modify worker-specific logic (e.g., in `openclaw.ts` or `eliza.ts`), you must rebuild the worker container:
+
+```bash
+docker compose build worker
+docker compose up -d worker
+```
+
+### 2. Rebuild Agent Images
+If you modify the base agent Dockerfiles (e.g., `scripts/eliza.dockerfile`), trigger a fresh build of the agent image:
+
+```bash
+./scripts/2-setup-eliza.sh
+```
+
+### 3. Restart Agents
+When the worker is updated, existing agents must be stopped and started via the UI or API to pick up the new logic. This ensures:
+- The correct directory structures (like `.openclaw/`) are created.
+- Correct volume permissions (`chown`) are applied.
+- New environment variables and path mappings are active.
+
+### 4. Migration & Permissions (First-time setup)
+Ensure your `packages/worker/.env` contains the required path variables:
+
+```env
+AGENTS_DATA_HOST_PATH=/var/lib/blueprints/agents-data
+AGENTS_DATA_CONTAINER_PATH=/mnt/agents-data
+```
+
+And verify the host directory exists with correct permissions:
+
+```bash
+sudo mkdir -p /var/lib/blueprints/agents-data
+sudo chown -R 1000:1000 /var/lib/blueprints/agents-data
+```
+
+---
+
+Once these steps are completed, your system is fully rebuilt and synchronized.
