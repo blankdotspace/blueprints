@@ -20,6 +20,7 @@ SCRIPTS=(
     "2-setup-eliza.sh"
     "3-setup-openclaw.sh"
     "4-setup-network.sh"
+    "4.1-build-worker-docker.sh"
     "5-vps-diagnostics.sh"
     "6-setup-auto-deploy.sh"
 )
