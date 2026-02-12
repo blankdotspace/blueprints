@@ -91,6 +91,14 @@ export async function startOpenClawAgent(
         if (Array.isArray(finalConfig.agents.list)) {
             finalConfig.agents.list.forEach((a: any) => {
                 a.workspace = "/agent-home/.openclaw/workspace";
+
+                // CRITICAL: Synchronize the agent ID with the database UUID.
+                // If we don't do this, the message bus (which uses the UUID in x-openclaw-agent-id)
+                // won't match the config ID ("main"), causing OpenClaw to auto-generate
+                // a new agent entry with a "workspace-<uuid>" suffix.
+                if (a.id === 'main' || finalConfig.agents.list.length === 1) {
+                    a.id = agentId;
+                }
             });
         }
 
