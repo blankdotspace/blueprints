@@ -462,6 +462,45 @@ const mcpPlugin: FastifyPluginAsync = async (fastify) => {
             }
         );
 
+        // 6. SKILL MANIFEST RESOURCE
+        server.resource(
+            'skill_manifest',
+            'mcp://skill',
+            async (uri) => {
+                return {
+                    contents: [{
+                        uri: uri.href,
+                        text: JSON.stringify({
+                            name: 'Blueprints MCP',
+                            docs: 'agent://skill/docs',
+                            manifest_url: '/mcp/skill.json'
+                        }, null, 2)
+                    }]
+                };
+            }
+        );
+
+        server.resource(
+            'skill_docs',
+            'agent://skill/docs',
+            async (uri) => {
+                const fs = await import('fs/promises');
+                const path = await import('path');
+                let content = '# Docs';
+                try {
+                    const docsPath = path.join(process.cwd(), '../../.agent/skills/mcp-server.md');
+                    content = await fs.readFile(docsPath, 'utf-8');
+                } catch (e) { }
+
+                return {
+                    contents: [{
+                        uri: uri.href,
+                        text: content
+                    }]
+                };
+            }
+        );
+
         fastify.log.info({ userId, sessionId }, 'MCP SSE Connection Initialized');
 
         await server.connect(transport);
@@ -475,6 +514,38 @@ const mcpPlugin: FastifyPluginAsync = async (fastify) => {
         });
 
         await auditService.log({ mcpKeyId: keyId, userId, toolName: 'connect', status: 'success' });
+    });
+
+    // Discovery Endpoint (skill.json)
+    fastify.get('/mcp/skill.json', async () => {
+        return {
+            name: 'Blueprints MCP',
+            description: 'Manage AI agents programmatically',
+            version: '1.0.0',
+            mcp_endpoint: '/mcp/sse',
+            docs_url: '/mcp/skill.md',
+            capabilities: {
+                tools: ['list_agents', 'start_agent', 'stop_agent', 'create_agent', 'edit_agent_config', 'remove_agent', 'send_message'],
+                resources: ['agent://{id}/state', 'agent://{id}/config', 'skill://manifest']
+            }
+        };
+    });
+
+    // Serve mcp-server.md as a plain text/markdown route
+    fastify.get('/mcp/skill.md', async (request, reply) => {
+        // We'll return the content of .agent/skills/mcp-server.md
+        // In this workspace, let's assume it's relative to the app root or just hardcode the response for portability.
+        // Actually, let's try to read it from the file system if we can find it.
+        const fs = await import('fs/promises');
+        const path = await import('path');
+        try {
+            // Root is 2 levels up from backend/src
+            const docsPath = path.join(process.cwd(), '../../.agent/skills/mcp-server.md');
+            const content = await fs.readFile(docsPath, 'utf-8');
+            return reply.type('text/markdown').send(content);
+        } catch (e) {
+            return reply.type('text/markdown').send('# Blueprints MCP Server\n\nDocumentation not found on disk.');
+        }
     });
 
     // Messages Endpoint - HANDLE MESSAGES via SessionID
