@@ -250,6 +250,12 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                 modelName = found ? found.name || modelId : 'Mistral Model';
                 modelApi = 'openai-completions';
                 baseUrl = 'https://api.mistral.ai/v1';
+            } else if (config.provider === 'openrouter') {
+                modelId = config.modelId || 'openrouter/auto';
+                const found = availableModels.find((m: any) => m.id === modelId);
+                modelName = found ? found.name || modelId : 'OpenRouter Model';
+                modelApi = 'openai-completions';
+                baseUrl = 'https://openrouter.ai/api/v1';
             } else if (config.provider === 'ollama') {
                 modelId = config.modelId || 'llama3';
                 modelName = 'Local Model';

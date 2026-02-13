@@ -30,13 +30,14 @@ interface KeyLease {
     last_used_at?: string;
     max_agents: number;
     profiles?: { email: string };
+    agents?: { name: string };
 }
 
 export default function ManagedKeysAdmin() {
     const supabase = createClient();
     const [tab, setTab] = useState<'keys' | 'leases'>('keys');
     const [keys, setKeys] = useState<ManagedKey[]>([]);
-    const [leases, setLeases] = useState<KeyLease[]>([]);
+    const [leasesByKey, setLeasesByKey] = useState<Record<string, KeyLease[]>>({});
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
@@ -90,7 +91,8 @@ export default function ManagedKeysAdmin() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (!res.ok) throw new Error('Failed to fetch leases');
-            setLeases(await res.json());
+            const data = await res.json();
+            setLeasesByKey(prev => ({ ...prev, [keyId]: data }));
         } catch (err: any) {
             setError(err.message);
         }
@@ -173,10 +175,11 @@ export default function ManagedKeysAdmin() {
     const toggleExpand = async (keyId: string) => {
         if (expandedKey === keyId) {
             setExpandedKey(null);
-            setLeases([]);
         } else {
             setExpandedKey(keyId);
-            await fetchLeases(keyId);
+            if (!leasesByKey[keyId]) {
+                await fetchLeases(keyId);
+            }
         }
     };
 
@@ -363,50 +366,69 @@ export default function ManagedKeysAdmin() {
                         {expandedKey === key.id && (
                             <div className="border-t border-gray-700/50 p-3">
                                 <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Leases</span>
-                                    <span className="text-xs text-gray-500">Created {timeAgo(key.created_at)}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Leases</span>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); fetchLeases(key.id); }}
+                                            className="p-1 text-gray-500 hover:text-white transition-colors"
+                                            title="Refresh Leases"
+                                        >
+                                            <RefreshCw className="w-3 h-3" />
+                                        </button>
+                                    </div>
+                                    <span className="text-xs text-gray-500">Key created {timeAgo(key.created_at)}</span>
                                 </div>
 
-                                {leases.length === 0 ? (
-                                    <div className="text-center py-4 text-gray-500 text-xs">No leases</div>
+                                {(!leasesByKey[key.id] || leasesByKey[key.id].length === 0) ? (
+                                    <div className="text-center py-4 text-gray-500 text-xs">No active leases</div>
                                 ) : (
                                     <div className="space-y-1">
-                                        {leases.map((lease) => (
-                                            <div key={lease.id} className="flex items-center justify-between p-2 bg-gray-900/40 rounded text-xs">
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${lease.status === 'active' ? 'bg-emerald-400' :
+                                        {leasesByKey[key.id].map((lease) => (
+                                            <div key={lease.id} className="flex items-center justify-between p-2 bg-gray-900/40 rounded text-xs gap-4">
+                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                    <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${lease.status === 'active' ? 'bg-emerald-400' :
                                                         lease.status === 'expired' ? 'bg-yellow-400' : 'bg-red-400'
                                                         }`} />
-                                                    <span className="text-gray-300 font-mono">
-                                                        {lease.profiles?.email || lease.user_id.slice(0, 8)}
-                                                    </span>
-                                                    <span className="text-gray-500">
+                                                    <div className="flex flex-col min-w-0">
+                                                        <span className="text-gray-300 font-mono truncate">
+                                                            {lease.profiles?.email || lease.user_id.slice(0, 8)}
+                                                        </span>
+                                                        {lease.agents?.name && (
+                                                            <span className="text-[10px] text-amber-400/80 font-medium truncate">
+                                                                Agent: {lease.agents.name}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3 flex-shrink-0">
+                                                    <span className="text-gray-500 whitespace-nowrap">
                                                         <Clock className="w-3 h-3 inline mr-1" />
                                                         {lease.status === 'active' ? timeUntil(lease.expires_at) : lease.status}
                                                     </span>
                                                     {lease.usage_usd > 0 && (
-                                                        <span className="text-amber-300">${lease.usage_usd.toFixed(2)}</span>
+                                                        <span className="text-amber-300 font-bold">${lease.usage_usd.toFixed(2)}</span>
                                                     )}
-                                                </div>
-                                                <div className="flex gap-1">
-                                                    {lease.status === 'active' && (
-                                                        <>
-                                                            <button
-                                                                onClick={() => extendLease(lease.id, 7)}
-                                                                className="px-2 py-0.5 text-blue-300 hover:bg-blue-500/20 rounded transition-colors"
-                                                                title="Extend 7 days"
-                                                            >
-                                                                +7d
-                                                            </button>
-                                                            <button
-                                                                onClick={() => revokeLease(lease.id)}
-                                                                className="px-2 py-0.5 text-red-300 hover:bg-red-500/20 rounded transition-colors"
-                                                                title="Revoke"
-                                                            >
-                                                                Revoke
-                                                            </button>
-                                                        </>
-                                                    )}
+                                                    <div className="flex gap-1">
+                                                        {lease.status === 'active' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => extendLease(lease.id, 7)}
+                                                                    className="px-2 py-0.5 text-blue-300 hover:bg-blue-500/20 rounded transition-colors"
+                                                                    title="Extend 7 days"
+                                                                >
+                                                                    +7d
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => revokeLease(lease.id)}
+                                                                    className="px-2 py-0.5 text-red-300 hover:bg-red-500/20 rounded transition-colors"
+                                                                    title="Revoke"
+                                                                >
+                                                                    Revoke
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
