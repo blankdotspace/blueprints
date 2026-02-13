@@ -2,13 +2,19 @@
 
 import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase';
-import { User, Lock, Save, Loader2, Check, Shield, Mail, Sparkles } from 'lucide-react';
+import { User, Lock, Save, Loader2, Mail, Sparkles } from 'lucide-react';
 import { useNotification } from '@/components/notification-provider';
 import UpgradeModal from './upgrade-modal';
 import ApiKeyManager from './api-key-manager';
 
 interface SettingsViewProps {
-    user: any;
+    user: {
+        id: string;
+        email?: string;
+        user_metadata?: {
+            full_name?: string;
+        };
+    };
 }
 
 export default function SettingsView({ user }: SettingsViewProps) {
@@ -25,7 +31,7 @@ export default function SettingsView({ user }: SettingsViewProps) {
         e.preventDefault();
         setLoading(true);
 
-        const updates: any = {
+        const updates: { data: { full_name: string }; password?: string } = {
             data: { full_name: fullName }
         };
 
@@ -53,8 +59,9 @@ export default function SettingsView({ user }: SettingsViewProps) {
             showNotification('Profile updated successfully.', 'success');
             setPassword('');
             setConfirmPassword('');
-        } catch (err: any) {
-            showNotification(err.message || 'Failed to update profile.', 'error');
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to update profile.';
+            showNotification(message, 'error');
         } finally {
             setLoading(false);
         }
@@ -68,7 +75,7 @@ export default function SettingsView({ user }: SettingsViewProps) {
             if (data) setTier(data.tier);
         };
         fetchTier();
-    }, [user.id]);
+    }, [user.id, supabase]);
 
 
 

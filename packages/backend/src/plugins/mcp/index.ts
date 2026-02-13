@@ -217,7 +217,7 @@ const mcpPlugin: FastifyPluginAsync = async (fastify) => {
                 project_id: z.string().uuid(),
                 name: z.string().min(1),
                 framework: z.enum(['eliza', 'openclaw']).default('openclaw'),
-                config: z.record(z.any()).optional()
+                config: z.record(z.string(), z.any()).optional()
             },
             async ({ project_id, name, framework, config }) => {
                 // 1. Verify Project Ownership
@@ -258,7 +258,7 @@ const mcpPlugin: FastifyPluginAsync = async (fastify) => {
             'Update an agent\'s configuration',
             {
                 agent_id: z.string().uuid(),
-                config: z.record(z.any())
+                config: z.record(z.string(), z.any())
             },
             async ({ agent_id, config }) => {
                 // 1. Verify Ownership

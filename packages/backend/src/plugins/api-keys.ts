@@ -80,10 +80,6 @@ const apiKeysPlugin: FastifyPluginAsync = async (fastify) => {
     const revokeKey = async (id: string, userId: string) => {
         const { error } = await fastify.supabase
             .from('user_api_keys')
-            .delete() // Or set is_active = false? Requirement said "Revoke". Delete is cleaner for now or soft delete.
-            // Actually, usually safer to just set inactive. But let's delete to keep table clean for MVP.
-            // Wait, requirement said "disabling individual MCP keys".
-            // Let's set is_active=false instead.
             .update({ is_active: false })
             .eq('id', id)
             .eq('user_id', userId);

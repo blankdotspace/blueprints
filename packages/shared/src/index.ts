@@ -113,6 +113,7 @@ export interface Project {
     user_id: string;
     name: string;
     created_at: string;
+    tier?: string; // Derived or explicitly set for UI
 }
 
 export interface Agent {
@@ -144,7 +145,7 @@ export interface AgentDesiredState {
         [key: string]: any;
     };
     updated_at: string;
-    purge_at?: string;
+    purge_at?: string | null;
 }
 
 export interface AgentActualState {
@@ -164,8 +165,8 @@ export const CreateProjectSchema = z.object({
 
 export const UpdateAgentConfigSchema = z.object({
     enabled: z.boolean().optional(),
-    config: z.record(z.any()).optional(),
-    metadata: z.record(z.any()).optional(),
+    config: z.record(z.string(), z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional(),
     name: z.string().optional(),
     purge_at: z.string().nullable().optional(),
 });
@@ -224,8 +225,8 @@ export const CreateAgentSchema = z.object({
     name: z.string().min(1).max(100),
     framework: z.enum(['eliza', 'openclaw']).default('eliza'),
     templateId: z.string().optional(),
-    configTemplate: z.record(z.any()).optional(),
-    metadata: z.record(z.any()).optional()
+    configTemplate: z.record(z.string(), z.any()).optional(),
+    metadata: z.record(z.string(), z.any()).optional()
 });
 
 export const AgentStateSchema = z.object({
