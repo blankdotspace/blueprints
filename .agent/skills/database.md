@@ -1,6 +1,6 @@
 ---
-name: Database Debugging
-description: Instructions for debugging and interacting with the clouded Supabase database using the provided script.
+name: Database usage
+description: Instructions for interacting and debugging the clouded Supabase database using the provided script.
 ---
 
 ## 🛠️ Using Supabase MCP Server
