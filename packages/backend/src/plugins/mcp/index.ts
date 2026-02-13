@@ -23,6 +23,9 @@ const mcpPlugin: FastifyPluginAsync = async (fastify) => {
     fastify.addHook('preHandler', async (request, reply) => {
         if (!request.url.startsWith('/mcp/')) return;
 
+        // Exempt discovery routes
+        if (request.url === '/mcp/skill.json' || request.url === '/mcp/skill.md') return;
+
         // 1. System Kill Switch
         const enabled = await fastify.settings.isMcpEnabled();
         if (!enabled) {
