@@ -12,6 +12,52 @@ import SettingsView from '@/components/settings-view';
 import UpgradeModal from '@/components/upgrade-modal';
 import FeedbackView from '@/components/feedback-view';
 
+const CLUSTER_FIRST = [
+    // Tactical / Ops
+    'Command', 'Ops', 'Mission', 'Signal', 'Execution', 'Control', 'Field', 'Strategic',
+    // Agent / Sci-Fi
+    'Neuron', 'Synthetic', 'Ghost', 'Quantum', 'Cyber', 'Autonomy', 'Protocol', 'Sentinel',
+    // Startup / Hacker
+    'Growth', 'Velocity', 'Chaos', 'Bootstrap', 'Launch', 'Build',
+    // Product / Business
+    'Revenue', 'Market', 'Customer', 'Insights', 'Product', 'Deal', 'Analytics', 'Retention',
+    // Fun / Unhinged
+    'Brain', 'Idea', 'Agent', 'Think', 'Digital', 'Automation'
+];
+
+const CLUSTER_LAST = [
+    // Tactical / Ops
+    'Core', 'Hub', 'Control', 'Room', 'Bay', 'Deck', 'Ops', 'Cell',
+    // Agent / Sci-Fi
+    'Cluster', 'Wing', 'Network', 'Division', 'Grid', 'Vault', 'Node',
+    // Startup / Hacker
+    'Lab', 'Shipyard', 'Launchpad', 'Den', 'Stack',
+    // Product / Business
+    'Engine', 'Radar', 'Forge', 'Factory', 'Studio', 'Desk', 'Hive', 'Unit',
+    // Fun / Slightly Unhinged
+    'Farm', 'Reactor', 'Swarm', 'Nursery', 'Coven', 'Pit'
+];
+
+const pickRandom = (arr: string[]) =>
+    arr[Math.floor(Math.random() * arr.length)];
+
+const generateClusterName = () =>
+    `${pickRandom(CLUSTER_FIRST)} ${pickRandom(CLUSTER_LAST)}`;
+
+// Optional: prevent repeats like "Ops Ops"
+// const generateClusterName = () => {
+//     let first, last;
+
+//     do {
+//         first = pickRandom(CLUSTER_FIRST);
+//         last = pickRandom(CLUSTER_LAST);
+//     } while (first === last);
+
+//     return `${first} ${last}`;
+// };
+
+
+
 export default function DashboardPage() {
     const [user, setUser] = useState<any>(null);
     const [role, setRole] = useState<string | null>(null);
@@ -88,7 +134,7 @@ export default function DashboardPage() {
 
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
-    const [selectedFramework, setSelectedFramework] = useState<'eliza' | 'openclaw' | 'mixed'>('eliza');
+    const [selectedFramework, setSelectedFramework] = useState<'eliza' | 'openclaw' | 'mixed'>('mixed');
     const [isCreating, setIsCreating] = useState(false);
     const [createError, setCreateError] = useState<string | null>(null);
 
@@ -101,15 +147,13 @@ export default function DashboardPage() {
     // Upgrade Modal State
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
 
-    // Random Hints
     const [clusterHint, setClusterHint] = useState('e.g. Sales Unit B');
     useEffect(() => {
-        const hints = [
-            'e.g. Sales Unit B', 'e.g. Research Division', 'e.g. Alpha Squad', 'e.g. Customer Support',
-            'e.g. Creative Studio', 'e.g. Data Ops', 'e.g. Security Detail', 'e.g. Trading Bot',
-            'e.g. Content Team', 'e.g. Dev Cluster'
-        ];
-        setClusterHint(hints[Math.floor(Math.random() * hints.length)]);
+        const hint = generateClusterName();
+        setClusterHint(`e.g. ${hint}`);
+        if (isCreateModalOpen) {
+            setNewProjectName(hint);
+        }
     }, [isCreateModalOpen]); // Update hint when modal opens
 
     const handleCreateProject = async (e: React.FormEvent) => {
@@ -480,24 +524,21 @@ export default function DashboardPage() {
                                         {[
                                             { id: 'eliza', name: 'Eliza', icon: Bot, desc: 'Character agents' },
                                             { id: 'openclaw', name: 'OpenClaw', icon: Sparkles, desc: 'Collective Intel' },
-                                            { id: 'mixed', name: 'Mixed', icon: Zap, desc: 'Coming Soon', disabled: true }
+                                            { id: 'mixed', name: 'Mixed', icon: Zap, desc: 'Frameworks' }
                                         ].map((fw) => (
                                             <button
                                                 key={fw.id}
                                                 type="button"
-                                                disabled={fw.disabled}
                                                 onClick={() => setSelectedFramework(fw.id as any)}
-                                                className={`p-4 rounded-2xl border transition-all text-left relative overflow-hidden group ${fw.disabled
-                                                    ? 'opacity-40 grayscale cursor-not-allowed border-white/5 bg-white/5'
-                                                    : selectedFramework === fw.id
-                                                        ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
-                                                        : 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]'
+                                                className={`p-4 rounded-2xl border transition-all text-left relative overflow-hidden group ${selectedFramework === fw.id
+                                                    ? 'border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary-rgb),0.1)]'
+                                                    : 'border-white/5 bg-white/5 hover:border-white/20 hover:bg-white/[0.08]'
                                                     }`}
                                             >
                                                 <fw.icon size={18} className={`mb-2 ${selectedFramework === fw.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                                 <div className="font-black text-[10px] uppercase tracking-wider mb-0.5">{fw.name}</div>
                                                 <div className="text-[10px] text-muted-foreground leading-tight font-medium">{fw.desc}</div>
-                                                {selectedFramework === fw.id && !fw.disabled && (
+                                                {selectedFramework === fw.id && (
                                                     <div className="absolute top-2 right-2 size-1.5 rounded-full bg-primary animate-pulse" />
                                                 )}
                                             </button>

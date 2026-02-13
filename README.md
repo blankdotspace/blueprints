@@ -24,6 +24,13 @@ Blueprints features a professional-grade terminal integrated directly into the a
 - **Dual Routing System**: Seamlessly toggle between **Chat Mode** (Natural Language) and **Terminal Mode** (Shell Commands).
 - **Advanced Diagnostics**: Access logs, file systems, and environment variables without leaving the dashboard.
 - **Slash Commands**: Power users can use the `/terminal <command>` prefix to trigger shell execution even while in Chat Mode.
+- **Persistent Sessions**: Maintain console state across multiple chat sessions and page refreshes.
+
+### 🔑 Managed Provider Keys (MPK)
+Blueprints allows for hybrid model access through a dual-key system:
+- **BYOK (Bring Your Own Key)**: Full control over your AI providers and billing.
+- **Managed Leases**: Admins can lease shared API access (e.g., OpenRouter) to users for temporary testing and evaluation without per-user setup.
+- **Automatic Orchestration**: The system handles lease expiration, key rotation, and agent configuration automatically.
 
 ## Security Levels & Isolation Model
 
@@ -189,6 +196,7 @@ bun run lint
 ## Documentation
 
 - [OpenClaw Integration Walkthrough](docs/openclaw-integration.md)
+- [Managed Provider Keys (MPK) Architecture](docs/managed-provider-keys.md)
 
 
 

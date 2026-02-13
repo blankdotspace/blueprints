@@ -9,6 +9,7 @@ import ElizaWizard from '@/components/eliza-wizard';
 import OpenClawWizard from '@/components/openclaw-wizard';
 import ChatInterface from '@/components/chat-interface';
 import ConfirmationModal from '@/components/confirmation-modal';
+import { Project, UserTier } from '@eliza-manager/shared';
 
 interface LocalAgentState {
     commandState: 'idle' | 'start_requested' | 'stop_requested' | 'purge_requested' | 'abort_requested';
@@ -22,29 +23,58 @@ interface LocalAgentState {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 const COOL_NAMES = [
+    // Original
     'Neon Ghost', 'Cypher Stalker', 'Glitch Weaver', 'Midnight Oracle',
     'Quantum Spark', 'Aether Pulse', 'Void Runner', 'Binary Spirit',
     'Silicon Reaper', 'Echo Prime', 'Nexus Core', 'Zenith Auditor',
-    'Solar Flare', 'Lunar Shadow', 'Onyx Sentinel', 'Cobalt Phantom'
+    'Solar Flare', 'Lunar Shadow', 'Onyx Sentinel', 'Cobalt Phantom',
+
+    // Added Cyber / AI
+    'Chrome Warden', 'Pixel Seer', 'Neural Drift', 'Circuit Prophet',
+    'Data Specter', 'Plasma Knight', 'Kernel Watcher', 'Hash Nomad',
+    'Crypto Raven', 'Logic Hunter',
+
+    // Mystic / Cosmic
+    'Astral Monk', 'Obsidian Mage', 'Star Architect', 'Cosmic Whisper',
+    'Gravity Oracle', 'Nova Priest', 'Entropy Sage', 'Void Alchemist',
+
+    // Hacker / Rogue
+    'Root Walker', 'Stack Pirate', 'Zero Day', 'Packet Rogue',
+    'Daemon Rider', 'Shell Phantom', 'Dark Terminal',
+
+    // Fun Dark Tech
+    'Rust Angel', 'Glass Titan', 'Wire Witch', 'Cloud Ronin',
+    'Bit Samurai', 'Cache Vampire'
 ];
 
+const COOL_WORDS = [...new Set(
+    COOL_NAMES.flatMap(n => n.split(' '))
+)];
+
 const generateCoolName = () => {
-    // Split all names into individual words
-    const words = COOL_NAMES.flatMap(name => name.split(' '));
-    // Remove duplicates just in case
-    const uniqueWords = [...new Set(words)];
-
-    // Pick 2 random words
-    const r1 = Math.floor(Math.random() * uniqueWords.length);
-    let r2 = Math.floor(Math.random() * uniqueWords.length);
-
-    // Ensure we don't pick the same word twice
-    while (r2 === r1) {
-        r2 = Math.floor(Math.random() * uniqueWords.length);
-    }
-
-    return `${uniqueWords[r1]} ${uniqueWords[r2]}`;
+    const a = Math.floor(Math.random() * COOL_WORDS.length);
+    let b = Math.floor(Math.random() * COOL_WORDS.length);
+    while (b === a) b = Math.floor(Math.random() * COOL_WORDS.length);
+    return `${COOL_WORDS[a]} ${COOL_WORDS[b]}`;
 };
+
+// const generateCoolName = () => {
+//     // Split all names into individual words
+//     const words = COOL_NAMES.flatMap(name => name.split(' '));
+//     // Remove duplicates just in case
+//     const uniqueWords = [...new Set(words)];
+
+//     // Pick 2 random words
+//     const r1 = Math.floor(Math.random() * uniqueWords.length);
+//     let r2 = Math.floor(Math.random() * uniqueWords.length);
+
+//     // Ensure we don't pick the same word twice
+//     while (r2 === r1) {
+//         r2 = Math.floor(Math.random() * uniqueWords.length);
+//     }
+
+//     return `${uniqueWords[r1]} ${uniqueWords[r2]}`;
+// };
 
 export default function ProjectView({ projectId, onDataChange, onUpgrade }: { projectId: string; onDataChange?: () => void; onUpgrade?: () => void }) {
     const { session } = useAuth();
@@ -124,7 +154,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             setAgents(filtered);
 
             // Redundant clearing of commandState if backend already caught up
-            filtered.forEach(a => {
+            filtered.forEach((a: any) => {
                 const actual = (Array.isArray(a.agent_actual_state) ? a.agent_actual_state[0] : a.agent_actual_state) || { status: 'stopped' };
                 const local = localStateRef.current[a.id];
                 if (!local || local.commandState === 'idle') return;
@@ -923,7 +953,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                             : 'text-muted-foreground hover:bg-destructive/10 hover:text-destructive'}`}
                                         title={desired.purge_at ? 'ABORT TERMINATION' : 'Terminate Agent'}
                                     >
-                                        {local.pendingAction === 'aborting' ? <Loader2 size={22} className="animate-spin" /> :
+                                        {(local.commandState === 'abort_requested' || local.commandState === 'purge_requested') ? <Loader2 size={22} className="animate-spin" /> :
                                             <Skull size={22} />
                                         }
                                     </button>
