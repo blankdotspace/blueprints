@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Key, Shield, Clock, Trash2, Plus, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, X, Save, AlertCircle, Copy, Check } from 'lucide-react';
+import { Key, Clock, Plus, RefreshCw, ToggleLeft, ToggleRight, ChevronDown, ChevronUp, X, Save, AlertCircle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -11,6 +11,7 @@ interface ManagedKey {
     provider: string;
     label: string;
     active: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;
     daily_limit_usd?: number;
     monthly_limit_usd?: number;
@@ -35,7 +36,7 @@ interface KeyLease {
 
 export default function ManagedKeysAdmin() {
     const supabase = createClient();
-    const [tab, setTab] = useState<'keys' | 'leases'>('keys');
+    // const [tab, setTab] = useState<'keys' | 'leases'>('keys');
     const [keys, setKeys] = useState<ManagedKey[]>([]);
     const [leasesByKey, setLeasesByKey] = useState<Record<string, KeyLease[]>>({});
     const [loading, setLoading] = useState(false);
@@ -61,10 +62,12 @@ export default function ManagedKeysAdmin() {
             setToken(session?.access_token || null);
         };
         getToken();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (token) fetchKeys();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token]);
 
     const fetchKeys = async () => {
@@ -77,8 +80,9 @@ export default function ManagedKeysAdmin() {
             });
             if (!res.ok) throw new Error('Failed to fetch managed keys');
             setKeys(await res.json());
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to fetch managed keys';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -93,8 +97,9 @@ export default function ManagedKeysAdmin() {
             if (!res.ok) throw new Error('Failed to fetch leases');
             const data = await res.json();
             setLeasesByKey(prev => ({ ...prev, [keyId]: data }));
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to fetch leases';
+            setError(message);
         }
     };
 
@@ -124,8 +129,9 @@ export default function ManagedKeysAdmin() {
             setShowAddForm(false);
             setNewKey({ provider: 'openrouter', label: '', api_key: '', default_model: 'openrouter/auto', base_url: 'https://openrouter.ai/api/v1', daily_limit_usd: '', monthly_limit_usd: '' });
             await fetchKeys();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to create managed key';
+            setError(message);
         } finally {
             setLoading(false);
         }
@@ -140,8 +146,9 @@ export default function ManagedKeysAdmin() {
                 body: JSON.stringify({ active: !active })
             });
             await fetchKeys();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to toggle key';
+            setError(message);
         }
     };
 
@@ -153,8 +160,9 @@ export default function ManagedKeysAdmin() {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (expandedKey) await fetchLeases(expandedKey);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to revoke lease';
+            setError(message);
         }
     };
 
@@ -167,8 +175,9 @@ export default function ManagedKeysAdmin() {
                 body: JSON.stringify({ additional_days: days })
             });
             if (expandedKey) await fetchLeases(expandedKey);
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Failed to extend lease';
+            setError(message);
         }
     };
 

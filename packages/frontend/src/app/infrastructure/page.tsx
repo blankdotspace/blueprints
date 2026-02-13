@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, Server, Database, Globe } from 'lucide-react';
+import { ArrowLeft, Server, Globe } from 'lucide-react';
 
 export default function InfrastructurePage() {
     return (

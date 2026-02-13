@@ -4,8 +4,11 @@ import React, { useState } from 'react';
 import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot } from 'lucide-react';
 
 interface ElizaWizardProps {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     agent: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     actual: any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onSave: (config: any, metadata?: any, name?: string) => Promise<void>;
     onClose: () => void;
 }
@@ -19,6 +22,7 @@ const availablePlugins = [
 ];
 
 export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWizardProps) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getOne = (val: any) => (Array.isArray(val) ? val[0] : val);
     const existingConfig = getOne(agent.agent_desired_state)?.config;
 
@@ -89,8 +93,9 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                 try {
                     finalConfig = JSON.parse(localJson);
                     setConfig(finalConfig);
-                } catch (err: any) {
-                    setJsonError(err.message);
+                } catch (err: unknown) {
+                    const message = err instanceof Error ? err.message : 'Invalid JSON';
+                    setJsonError(message);
                     setSaving(false);
                     return;
                 }
@@ -98,14 +103,17 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
 
             await onSave(finalConfig, null, finalConfig.name);
             onClose();
-        } catch (err: any) {
-            alert('Failed to save configuration: ' + err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Unknown error';
+            alert('Failed to save configuration: ' + message);
         } finally {
             setSaving(false);
         }
     };
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updateField = (field: string, value: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         setConfig((prev: any) => ({ ...prev, [field]: value }));
     };
 
@@ -114,20 +122,13 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
         try {
             JSON.parse(val);
             setJsonError(null);
-        } catch (err: any) {
-            setJsonError(err.message);
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Invalid JSON';
+            setJsonError(message);
         }
     };
 
-    const handleSyncJson = () => {
-        try {
-            const parsed = JSON.parse(localJson);
-            setConfig(parsed);
-            setJsonError(null);
-        } catch (err: any) {
-            setJsonError(err.message);
-        }
-    };
+    // Removed unused handleSyncJson function
 
     const addItem = (field: string) => {
         const parts = field.split('.');
@@ -146,11 +147,13 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
         const parts = field.split('.');
         if (parts.length === 1) {
             const current = config[field] || [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             updateField(field, current.filter((_: any, i: number) => i !== index));
         } else {
             const [parent, child] = parts;
             const parentData = config[parent] || {};
             const childData = parentData[child] || [];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             updateField(parent, { ...parentData, [child]: childData.filter((_: any, i: number) => i !== index) });
         }
     };
@@ -278,6 +281,7 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                             ].map(tab => (
                                 <button
                                     key={tab.id}
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     onClick={() => setActiveTab(tab.id as any)}
                                     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab.id ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground/60 hover:text-white hover:bg-white/5'}`}
                                 >

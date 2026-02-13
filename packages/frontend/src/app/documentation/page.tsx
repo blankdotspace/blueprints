@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowLeft, Book, Code, Terminal } from 'lucide-react';
+import { ArrowLeft, Book } from 'lucide-react';
 
 export default function DocumentationPage() {
     return (

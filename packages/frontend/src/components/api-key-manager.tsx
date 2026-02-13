@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Key, Plus, Trash2, Copy, Check, Shield, AlertTriangle, Loader2 } from 'lucide-react';
+import { Key, Copy, Plus, Loader2, Trash2, Shield } from 'lucide-react';
 import { useApiKeys } from '@/hooks/use-api-keys';
 import { useNotification } from '@/components/notification-provider';
 
@@ -21,7 +21,7 @@ export default function ApiKeyManager() {
             setGeneratedKey(result);
             setNewLabel('');
             showNotification('API Key generated successfully', 'success');
-        } catch (error) {
+        } catch {
             showNotification('Failed to generate key', 'error');
         } finally {
             setIsGenerating(false);
@@ -33,7 +33,7 @@ export default function ApiKeyManager() {
         try {
             await revokeKey(id);
             showNotification('API Key revoked', 'success');
-        } catch (error) {
+        } catch {
             showNotification('Failed to revoke key', 'error');
         }
     };

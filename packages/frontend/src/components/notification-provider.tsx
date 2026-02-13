@@ -107,6 +107,7 @@ function NotificationToast({ notification, onDismiss }: { notification: Notifica
     );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useNotification() {
     const context = useContext(NotificationContext);
     if (context === undefined) {

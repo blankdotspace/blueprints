@@ -28,7 +28,8 @@ export function StepNeuralConfig({
     fetchModels
 }: StepNeuralConfigProps) {
     // Helper to safely access nested properties from existingConfig
-    const getNested = (obj: any, path: string[]) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const getNested = (obj: any, path: string[]): any => {
         return path.reduce((acc, part) => acc && acc[part], obj);
     };
 

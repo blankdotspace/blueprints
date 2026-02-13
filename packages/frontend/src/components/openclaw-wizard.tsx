@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase';
 import { UserTier, SecurityLevel, isModelCompatible } from '@eliza-manager/shared';
 import { User, Zap, Shield, Share2, MessageSquare, X } from 'lucide-react';
 import { useNotification } from '@/components/notification-provider';
-import { Model, OpenClawConfig, OpenClawWizardProps, getOne } from './openclaw-wizard/types';
+import { Model, OpenClawConfig, OpenClawWizardProps } from './openclaw-wizard/types';
+import { getOne } from './openclaw-wizard/utils';
 import { StepIdentity } from './openclaw-wizard/step-identity';
 import { StepProvider } from './openclaw-wizard/step-provider';
 import { StepNeuralConfig } from './openclaw-wizard/step-neural-config';
@@ -52,6 +53,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
             }
         };
         fetchSettings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     React.useEffect(() => {
@@ -236,7 +238,7 @@ export default function OpenClawWizard({ agent, onSave, onClose }: OpenClawWizar
                 baseUrl = 'https://api.mistral.ai/v1';
             } else if (config.provider === 'openrouter') {
                 modelId = config.modelId || 'openrouter/auto';
-                const found = availableModels.find((m: any) => m.id === modelId);
+                const found = availableModels.find((m: Model) => m.id === modelId);
                 modelName = found ? found.name || modelId : 'OpenRouter Model';
                 modelApi = 'openai-completions';
                 baseUrl = 'https://openrouter.ai/api/v1';

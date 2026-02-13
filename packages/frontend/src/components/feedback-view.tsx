@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Bot, Sparkles, Send, Loader2, Zap, MessageSquare, Rocket } from 'lucide-react';
+import { Bot, Sparkles, Send, Loader2, MessageSquare, Rocket } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import SurveyFeedbackWizard from './survey-feedback-wizard';
 

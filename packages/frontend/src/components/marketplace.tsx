@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Filter, Download, Check, Loader2, Bot, Zap, Star, Shield, Sparkles, Cpu, Box, Layers, ChevronLeft } from 'lucide-react';
+import { Search, Check, Loader2, Bot, Zap, Shield, Sparkles, Cpu, Box, Layers, ChevronLeft } from 'lucide-react';
 
 interface AgentTemplate {
     id: string;
@@ -10,6 +10,7 @@ interface AgentTemplate {
     category: string;
     framework: 'elizaos' | 'openclaw';
     icon: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     config: any;
     stats?: {
         installs: string;
@@ -99,7 +100,8 @@ const templates: AgentTemplate[] = [
 ];
 
 export default function Marketplace({ projectId }: { projectId: string }) {
-    const session: any = null; // Removed useAuth as it was unused and causing errors. Placeholder for session if needed.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const session: any = null; // Placeholder for session if needed
     const [search, setSearch] = useState('');
     const [frameworkFilter, setFrameworkFilter] = useState<'all' | 'elizaos' | 'openclaw'>('all');
     const [categoryFilter, setCategoryFilter] = useState('All');
@@ -165,8 +167,9 @@ export default function Marketplace({ projectId }: { projectId: string }) {
             setMessage({ type: 'success', text: `${agentName} successfully deployed to your cluster!` });
             setSetupStep(1);
             setSelectedTemplate(null);
-        } catch (err: any) {
-            setMessage({ type: 'error', text: err.message });
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Deployment failed';
+            setMessage({ type: 'error', text: message });
         } finally {
             setInstalling(null);
         }
@@ -306,7 +309,7 @@ export default function Marketplace({ projectId }: { projectId: string }) {
                     ].map(fw => (
                         <button
                             key={fw.id}
-                            onClick={() => setFrameworkFilter(fw.id as any)}
+                            onClick={() => setFrameworkFilter(fw.id as 'all' | 'elizaos' | 'openclaw')}
                             className={`px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${frameworkFilter === fw.id
                                 ? 'bg-primary text-white shadow-lg shadow-primary/20'
                                 : 'text-muted-foreground hover:text-white hover:bg-white/5'

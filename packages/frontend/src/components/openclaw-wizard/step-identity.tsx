@@ -124,7 +124,3 @@ export function StepIdentity({
     );
 }
 
-// Helper to check standard OpenClaw Config object structure
-export function getOne<T>(val: T | T[]): T {
-    return Array.isArray(val) ? val[0] : val;
-}

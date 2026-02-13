@@ -6,6 +6,7 @@ import './globals.css';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' });
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const metadata: Metadata = {
     title: 'Blueprints | Agents Launchpad',
     description: 'Launch and Manage AI Agents Easily',

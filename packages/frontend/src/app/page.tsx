@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
 import {
     Bot,
@@ -8,7 +8,6 @@ import {
     ArrowRight,
     Zap,
     Shield,
-    Cpu,
     Globe,
     MessageSquare,
     ChevronRight,
@@ -16,17 +15,50 @@ import {
     Check,
     RefreshCw
 } from 'lucide-react';
+
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useNotification } from '@/components/notification-provider';
 
+function AuthErrorHandler() {
+    const searchParams = useSearchParams();
+    const { showNotification } = useNotification();
+
+    useEffect(() => {
+        const error = searchParams.get('error');
+        const errorDescription = searchParams.get('error_description');
+
+        if (error) {
+            try {
+                const message = errorDescription
+                    ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+                    : 'An authentication error occurred.';
+                showNotification(message, 'error', 'Authentication Failed');
+            } catch {
+                // setError(err.message);
+                const message = errorDescription
+                    ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
+                    : 'An authentication error occurred.';
+                showNotification(message, 'error', 'Authentication Failed');
+            }
+
+            // Clean up URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, '', newUrl);
+        }
+    }, [searchParams, showNotification]);
+
+    return null;
+}
+
 export default function LandingPage() {
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [user, setUser] = useState<any>(null);
+    // const [scrolled, setScrolled] = useState<any>(false);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
     const router = useRouter();
-    const searchParams = useSearchParams();
-    const { showNotification } = useNotification();
 
     useEffect(() => {
         const checkUser = async () => {
@@ -41,22 +73,7 @@ export default function LandingPage() {
         checkUser();
     }, [supabase, router]);
 
-    useEffect(() => {
-        const error = searchParams.get('error');
-        const errorDescription = searchParams.get('error_description');
-
-        if (error) {
-            const message = errorDescription
-                ? decodeURIComponent(errorDescription.replace(/\+/g, ' '))
-                : 'An authentication error occurred.';
-            showNotification(message, 'error', 'Authentication Failed');
-
-            // Clean up URL
-            const newUrl = window.location.pathname;
-            window.history.replaceState({}, '', newUrl);
-        }
-    }, [searchParams, showNotification]);
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const FeatureCard = ({ icon: Icon, title, description, delay }: any) => (
         <div
             className="glass-card rounded-[2.5rem] p-8 border-white/5 bg-white/[0.02] hover:bg-white/[0.05] transition-all duration-500 group animate-in fade-in slide-in-from-bottom-8"
@@ -72,6 +89,10 @@ export default function LandingPage() {
 
     return (
         <div className="min-h-screen bg-background relative overflow-hidden selection:bg-primary/30">
+            <Suspense fallback={null}>
+                <AuthErrorHandler />
+            </Suspense>
+
             {/* Background Decorations */}
             <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] -translate-y-1/2 animate-pulse" />
             <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-purple-500/10 rounded-full blur-[120px] translate-y-1/2 animate-pulse delay-1000" />

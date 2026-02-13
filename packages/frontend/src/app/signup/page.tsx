@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Bot, Sparkles, ArrowRight, Github, ShieldCheck, X } from 'lucide-react';
+import { Bot, ArrowRight, ShieldCheck, X } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 

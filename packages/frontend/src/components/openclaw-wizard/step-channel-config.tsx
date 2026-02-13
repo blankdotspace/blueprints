@@ -7,6 +7,7 @@ import { OpenClawConfig } from './types';
 interface StepChannelConfigProps {
     config: OpenClawConfig;
     setConfig: (updater: (prev: OpenClawConfig) => OpenClawConfig) => void;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     existingConfig: any;
 }
 

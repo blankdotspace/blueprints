@@ -114,7 +114,6 @@ export interface Project {
     name: string;
     tier: string;
     created_at: string;
-    tier?: string; // Derived or explicitly set for UI
 }
 
 export interface Agent {

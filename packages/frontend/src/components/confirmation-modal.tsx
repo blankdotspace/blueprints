@@ -1,4 +1,4 @@
-import { AlertTriangle, X, Loader2 } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
 interface ConfirmationModalProps {
     isOpen: boolean;
@@ -54,8 +54,8 @@ export default function ConfirmationModal({
                         onClick={onConfirm}
                         disabled={isLoading}
                         className={`flex-[1.5] px-6 py-4 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-xl disabled:opacity-50 group overflow-hidden relative ${type === 'danger'
-                                ? 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'
-                                : 'bg-primary hover:bg-primary/90 shadow-primary/20'
+                            ? 'bg-destructive hover:bg-destructive/90 shadow-destructive/20'
+                            : 'bg-primary hover:bg-primary/90 shadow-primary/20'
                             }`}
                     >
                         <span className="relative flex items-center justify-center gap-2">

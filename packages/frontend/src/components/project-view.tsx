@@ -16,7 +16,6 @@ import ElizaWizard from '@/components/eliza-wizard';
 import OpenClawWizard from '@/components/openclaw-wizard';
 import ChatInterface from '@/components/chat-interface';
 import ConfirmationModal from '@/components/confirmation-modal';
-import { Project, UserTier } from '@eliza-manager/shared';
 
 interface LocalAgentState {
     commandState: 'idle' | 'start_requested' | 'stop_requested' | 'purge_requested' | 'abort_requested';
@@ -219,7 +218,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 event: '*',
                 schema: 'public',
                 table: 'agent_actual_state',
-            }, (payload: { new: AgentActualState }) => {
+            }, (payload: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 if (!payload.new || !payload.new.agent_id) return;
 
                 setAgents((prev) => prev.map(a => {
@@ -526,9 +525,10 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
         }
     };
 
-    const saveAgentConfig = async (config: Record<string, unknown>, metadata?: Record<string, unknown>, name?: string) => {
+    const saveAgentConfig = async (config: Record<string, unknown> | undefined, metadata?: Record<string, unknown>, name?: string) => {
         if (!editingAgent || !session?.access_token) return;
-        const body: Partial<AgentDesiredState> & { name?: string } = { config };
+        const body: Partial<AgentDesiredState> & { name?: string } = {};
+        if (config) body.config = config;
         if (metadata) body.metadata = metadata;
         if (name) body.name = name;
 

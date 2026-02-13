@@ -68,6 +68,7 @@ export default function ChatInterface({ agentId, onClose }: { agentId: string; o
         if (session?.access_token) {
             fetchChatHistory();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [agentId, session]);
 
     // Real-time subscription
@@ -110,6 +111,7 @@ export default function ChatInterface({ agentId, onClose }: { agentId: string; o
         if (session?.access_token) {
             fetchAgentDetails();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [agentId, session]);
 
     const fetchAgentDetails = async () => {
