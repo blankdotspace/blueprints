@@ -225,7 +225,7 @@ export type OpenClawConfig = z.infer<typeof OpenClawConfigSchema>;
 
 export const CreateAgentSchema = z.object({
     name: z.string().min(1).max(100),
-    framework: z.enum(['eliza', 'openclaw']).default('eliza'),
+    framework: z.enum(['elizaos', 'openclaw']).default('elizaos'),
     templateId: z.string().optional(),
     configTemplate: z.record(z.string(), z.any()).optional(),
     metadata: z.record(z.string(), z.any()).optional()
@@ -281,7 +281,7 @@ export interface ManagedKeyConfig {
     model_api?: string; // 'openai-completions' | 'openai-responses' | 'anthropic-messages'
     frameworks?: {
         openclaw?: Record<string, any>;
-        eliza?: Record<string, any>;
+        elizaos?: Record<string, any>;
         [key: string]: Record<string, any> | undefined;
     };
 }

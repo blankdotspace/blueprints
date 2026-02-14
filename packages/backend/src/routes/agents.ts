@@ -111,7 +111,7 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
         fastify.log.info({ projectId, name, framework }, 'Inserting new agent into database');
         const { data: agent, error: agentError } = await fastify.supabase
             .from('agents')
-            .insert([{ project_id: projectId, name, framework: framework || 'eliza' }])
+            .insert([{ project_id: projectId, name, framework: framework || 'elizaos' }])
             .select()
             .single();
 

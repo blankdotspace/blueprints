@@ -3,7 +3,7 @@ import { logger } from './lib/logger';
 import { docker } from './lib/docker';
 import { getConfigHash, getAgentContainerName } from './lib/utils';
 import { startOpenClawAgent, stopOpenClawAgent } from './handlers/openclaw';
-import { startElizaAgent, stopElizaAgent } from './handlers/eliza';
+import { startElizaOSAgent, stopElizaOSAgent } from './handlers/elizaos';
 import { RECONCILE_INTERVAL_MS } from './lib/constants';
 
 let isReconciling = false;
@@ -87,7 +87,7 @@ export async function reconcile() {
                 logger.info(`[TERMINATE] Executing final deletion for agent ${agent.id}...`);
                 try {
                     if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                    else await stopElizaAgent(agent.id);
+                    else await stopElizaOSAgent(agent.id);
                     // ONLY delete from DB if cleanup succeeded
                     await supabase.from('agents').delete().eq('id', agent.id);
                     logger.info(`[TERMINATE] Agent ${agent.id} successfully purged from both Docker and DB.`);
@@ -116,14 +116,14 @@ export async function reconcile() {
                     if (configChanged && isRunning) {
                         logger.info(`Config changed for agent ${agent.id}. Restarting...`);
                         if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                        else await stopElizaAgent(agent.id);
+                        else await stopElizaOSAgent(agent.id);
                     }
 
                     if (agent.framework === 'openclaw') {
                         const forceDoctor = currentFailCount > 0;
                         await startOpenClawAgent(agent.id, desired.config, desired.metadata, forceDoctor);
                     } else {
-                        await startElizaAgent(agent.id, desired.config);
+                        await startElizaOSAgent(agent.id, desired.config);
                     }
                     configHashes.set(agent.id, currentHash);
 
@@ -149,7 +149,7 @@ export async function reconcile() {
 
             } else if (!shouldBeRunning && isRunning) {
                 if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                else await stopElizaAgent(agent.id);
+                else await stopElizaOSAgent(agent.id);
                 configHashes.delete(agent.id);
                 failCounts.delete(agent.id);
             } else if (shouldBeRunning && isRunning && !lastHash) {
@@ -179,7 +179,7 @@ async function cleanupOrphanContainers() {
         for (const container of containers) {
             const name = container.Names[0].replace('/', '');
             // Pattern: [framework]-[agent_id]
-            const match = name.match(/^(openclaw|eliza)-([a-f0-9-]{36})$/);
+            const match = name.match(/^(openclaw|elizaos)-([a-f0-9-]{36})$/);
             if (match) {
                 const agentId = match[2];
                 if (!activeAgentIds.has(agentId)) {

@@ -37,7 +37,7 @@ async function main() {
         .upsert({
             name: runtimeName,
             version: version,
-            eliza_api_url: framework === 'eliza' ? 'http://localhost:3000' : 'http://localhost:18789',
+            eliza_api_url: framework === 'elizaos' ? 'http://localhost:3000' : 'http://localhost:18789',
             auth_token: 'local-token'
         }, { onConflict: 'name' });
 

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot } from 'lucide-react';
 
-interface ElizaWizardProps {
+interface ElizaOSWizardProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     agent: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -21,28 +21,28 @@ const availablePlugins = [
     { id: '@elizaos/plugin-coingecko', name: 'CoinGecko', description: 'Real-time crypto market data.' },
 ];
 
-export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWizardProps) {
+export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaOSWizardProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getOne = (val: any) => (Array.isArray(val) ? val[0] : val);
     const existingConfig = getOne(agent.agent_desired_state)?.config;
 
     // Default template based on user sample
     const defaultTemplate = {
-        name: agent.name || "Eliza",
-        username: agent.name?.toLowerCase().replace(/\s+/g, '_') || "eliza_ai",
+        name: agent.name || "ElizaOS Agent",
+        username: agent.name?.toLowerCase().replace(/\s+/g, '_') || "elizaos_agent",
         bio: [
             "An advanced AI assistant powered by elizaOS",
             "Specializes in technical support and creative problem-solving",
             "Continuously learning and adapting to user needs",
             "Built with privacy and security in mind"
         ],
-        system: "You are Eliza, a helpful and knowledgeable AI assistant.\nCore principles:\n- Be helpful, harmless, and honest\n- Provide accurate, well-researched information\n- Admit uncertainty when appropriate\n- Respect user privacy and boundaries\n- Adapt your communication style to the user's needs",
+        system: "You are ElizaOS, a helpful and knowledgeable AI assistant.\nCore principles:\n- Be helpful, harmless, and honest\n- Provide accurate, well-researched information\n- Admit uncertainty when appropriate\n- Respect user privacy and boundaries\n- Adapt your communication style to the user's needs",
         adjectives: ["helpful", "knowledgeable", "patient", "creative", "professional"],
         topics: ["programming", "web development", "artificial intelligence", "problem solving", "technology trends"],
         messageExamples: [
             [
                 { "name": "{{user}}", "content": { "text": "Hello!" } },
-                { "name": "Eliza", "content": { "text": "Hello! I'm Eliza, your AI assistant. How can I help you today?" } }
+                { "name": "ElizaOS", "content": { "text": "Hello! I'm ElizaOS, your AI assistant. How can I help you today?" } }
             ]
         ],
         postExamples: [
@@ -461,6 +461,7 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                                 </div>
                                                 <div>
                                                     <h4 className="font-black text-sm uppercase tracking-widest mb-1">{plugin.name}</h4>
+                                                    <p className="text-xs text-muted-foreground">The name of your ElizaOS agent</p>
                                                     <p className="text-xs text-muted-foreground font-medium leading-relaxed">{plugin.description}</p>
                                                 </div>
                                                 <div className={`size-6 rounded-full border flex items-center justify-center ml-auto ${config.plugins?.includes(plugin.id) ? 'bg-primary border-primary text-white' : 'border-white/10'}`}>
@@ -582,6 +583,7 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                         {logs.map((log, i) => (
                                             <div key={i} className="flex gap-4 mb-2 group">
                                                 <span className="text-muted-foreground/30 select-none">{i + 1}</span>
+                                                <span className="text-muted-foreground">Framework:</span> <span className="text-foreground">ElizaOS</span>
                                                 <span className={log.includes('HEARBEAT_OK') ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
                                                     {log}
                                                 </span>

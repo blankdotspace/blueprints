@@ -61,7 +61,7 @@ docker image inspect openclaw:local >/dev/null || exit 1
 # 6. sync with database
 echo "🔄 Updating database registry..."
 cd ../..
-bun run scripts/supabase-utils/sync-framework.ts openclaw "$OC_VERSION" success "Manual setup-openclaw.sh build"
+bun run scripts/supabase-utils/sync-framework.ts openclaw "$OC_VERSION" success "Modular setup-frameworks build"
 
 # 7. Clean up
 echo "🧹 Cleaning up..."

@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { docker } from '../lib/docker';
 import { getAgentContainerName, renameKey } from '../lib/utils';
-import { DOCKER_NETWORK_NAME, ELIZA_IMAGE_BASE } from '../lib/constants';
+import { DOCKER_NETWORK_NAME, ELIZAOS_IMAGE_BASE } from '../lib/constants';
 import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
 function getAgentContainerPath(agentId: string) {
@@ -21,22 +21,22 @@ function getAgentHostPath(agentId: string) {
     return path.join(root, agentId);
 }
 
-export async function startElizaAgent(agentId: string, config: any) {
-    logger.info(`Starting Eliza agent ${agentId}`);
+export async function startElizaOSAgent(agentId: string, config: any) {
+    logger.info(`Starting ElizaOS agent ${agentId}`);
 
     await supabase.from('agent_actual_state').upsert({
         agent_id: agentId,
         status: 'starting'
     });
 
-    const containerName = getAgentContainerName(agentId, 'eliza');
+    const containerName = getAgentContainerName(agentId, 'elizaos');
 
     try {
         const existing = await docker.getContainer(containerName);
         const info = await existing.inspect();
 
         if (info.State.Status === 'running') {
-            await hotReloadEliza(agentId, config);
+            await hotReloadElizaOS(agentId, config);
             return;
         }
 
@@ -56,7 +56,7 @@ export async function startElizaAgent(agentId: string, config: any) {
         const { execSync } = require('child_process');
         execSync(`chown -R 1000:1000 "${agentHome}"`);
     } catch (e: any) {
-        logger.warn(`Failed to chown eliza agent directory ${agentHome}: ${e.message}`);
+        logger.warn(`Failed to chown elizaos agent directory ${agentHome}: ${e.message}`);
     }
 
     const characterPath = path.join(agentHome, 'character.json');
@@ -64,13 +64,13 @@ export async function startElizaAgent(agentId: string, config: any) {
 
     // Ensure image
     try {
-        await docker.inspectImage(ELIZA_IMAGE_BASE);
+        await docker.inspectImage(ELIZAOS_IMAGE_BASE);
     } catch {
-        await docker.pullImage(ELIZA_IMAGE_BASE);
+        await docker.pullImage(ELIZAOS_IMAGE_BASE);
     }
 
     await docker.createContainer({
-        Image: ELIZA_IMAGE_BASE,
+        Image: ELIZAOS_IMAGE_BASE,
         name: containerName,
         User: '1000:1000',
 
@@ -114,7 +114,7 @@ export async function startElizaAgent(agentId: string, config: any) {
         detectedVersion = output.trim().replace(/[^\x20-\x7E\n]/g, '');
         logger.info(`Detected ElizaOS version ${detectedVersion} for agent ${agentId}`);
     } catch (vErr: any) {
-        logger.warn(`Could not detect version for Eliza agent ${agentId}: ${vErr.message}`);
+        logger.warn(`Could not detect version for ElizaOS agent ${agentId}: ${vErr.message}`);
     }
 
     await supabase.from('agent_actual_state').upsert({
@@ -126,8 +126,8 @@ export async function startElizaAgent(agentId: string, config: any) {
     });
 }
 
-export async function hotReloadEliza(agentId: string, config: any) {
-    const containerName = getAgentContainerName(agentId, 'eliza');
+export async function hotReloadElizaOS(agentId: string, config: any) {
+    const containerName = getAgentContainerName(agentId, 'elizaos');
 
     const decrypted = cryptoUtils.decryptConfig(config);
     const finalConfig = renameKey(decrypted, 'lore', 'knowledge');
@@ -149,11 +149,11 @@ export async function hotReloadEliza(agentId: string, config: any) {
     });
 
 
-    logger.info(`Eliza ${agentId} reloaded`);
+    logger.info(`ElizaOS ${agentId} reloaded`);
 }
 
-export async function runElizaCommand(agentId: string, command: string): Promise<string> {
-    const containerName = getAgentContainerName(agentId, 'eliza');
+export async function runElizaOSCommand(agentId: string, command: string): Promise<string> {
+    const containerName = getAgentContainerName(agentId, 'elizaos');
 
     try {
         const exec = await docker.createExec(containerName, {
@@ -165,7 +165,7 @@ export async function runElizaCommand(agentId: string, command: string): Promise
             Cmd: ['sh', '-c', command]
         });
 
-        logger.info(`Eliza: Exec ${exec.Id} → ${command}`);
+        logger.info(`ElizaOS: Exec ${exec.Id} → ${command}`);
 
         const result = await docker.startExec(exec.Id, {
             Detach: false,
@@ -177,14 +177,14 @@ export async function runElizaCommand(agentId: string, command: string): Promise
             : JSON.stringify(result);
 
     } catch (err: any) {
-        logger.error(`Eliza terminal error for ${agentId}:`, err.message);
+        logger.error(`ElizaOS terminal error for ${agentId}:`, err.message);
         return `Error: ${err.message}`;
     }
 }
 
 
-export async function stopElizaAgent(agentId: string) {
-    const containerName = getAgentContainerName(agentId, 'eliza');
+export async function stopElizaOSAgent(agentId: string) {
+    const containerName = getAgentContainerName(agentId, 'elizaos');
     try {
         await supabase.from('agent_actual_state').upsert({
             agent_id: agentId,
@@ -202,7 +202,7 @@ export async function stopElizaAgent(agentId: string) {
             last_sync: new Date().toISOString()
         });
     } catch (err: any) {
-        logger.warn(`Failed to stop Eliza agent ${agentId}:`, err.message);
+        logger.warn(`Failed to stop ElizaOS agent ${agentId}:`, err.message);
         // Ensure we mark as stopped if the container is gone
         if (err.message.includes('no such container') || err.message.includes('404')) {
             await supabase.from('agent_actual_state').upsert({
