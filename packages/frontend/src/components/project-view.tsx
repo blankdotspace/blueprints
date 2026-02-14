@@ -173,8 +173,9 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 const isStopFulfilled = local.commandState === 'stop_requested' && actual.status === 'stopped';
                 const isAbortFulfilled = local.commandState === 'abort_requested' && (actual.status === 'running' || actual.status === 'stopped');
                 const isPurgeFulfilled = local.commandState === 'purge_requested' && actual.status === 'stopped' && !desired?.purge_at;
+                const isError = actual.status === 'error';
 
-                if (isStartFulfilled || isStopFulfilled || isAbortFulfilled || isPurgeFulfilled) {
+                if (isStartFulfilled || isStopFulfilled || isAbortFulfilled || isPurgeFulfilled || isError) {
                     updateLocalState(a.id, { commandState: 'idle', commandId: undefined });
                 }
             });
@@ -240,8 +241,9 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                         const isStartSuccess = local?.commandState === 'start_requested' && payload.new.status === 'running';
                         const isStopSuccess = local?.commandState === 'stop_requested' && payload.new.status === 'stopped';
                         const isAbortSuccess = local?.commandState === 'abort_requested' && (payload.new.status === 'running' || payload.new.status === 'stopped');
+                        const isError = payload.new.status === 'error';
 
-                        if (isStartSuccess || isStopSuccess || isAbortSuccess) {
+                        if (isStartSuccess || isStopSuccess || isAbortSuccess || isError) {
                             updateLocalState(a.id, { commandState: 'idle', commandId: undefined });
                         }
 

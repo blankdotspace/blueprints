@@ -1,5 +1,5 @@
 # Build Stage
-FROM golang:1.24-alpine AS builder
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
@@ -16,19 +16,27 @@ RUN make deps && make build
 # Runtime Stage
 FROM alpine:latest
 
-WORKDIR /app
+# Create non-root user (id 1000)
+RUN addgroup -S -g 1000 agent && adduser -S -u 1000 -G agent agent
 
-# Install runtime dependencies if any (PicoClaw claims to be static binary mostly, but ca-certificates are good)
+WORKDIR /agent-home
+
+# Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
 
 # Copy binary from builder
-COPY --from=builder /app/bin/picoclaw /usr/local/bin/picoclaw
+COPY --from=builder /app/build/picoclaw /usr/local/bin/picoclaw
 
-# Create workspace directory
-RUN mkdir -p /root/.picoclaw/workspace
+# Create directories and set permissions
+RUN mkdir -p /agent-home/.picoclaw/workspace && \
+    chown -R agent:agent /agent-home
+
+# Switch to non-root user
+USER agent
 
 # Set environment variables
-ENV PICOCLAW_HOME=/root/.picoclaw
+ENV HOME=/agent-home
+ENV PICOCLAW_HOME=/agent-home/.picoclaw
 
 # Entrypoint
 CMD ["picoclaw", "gateway"]

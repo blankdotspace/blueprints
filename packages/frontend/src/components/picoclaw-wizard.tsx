@@ -4,9 +4,16 @@ import React, { useState } from 'react';
 import { Save, X, Cpu, Globe, Database, Code, Shield } from 'lucide-react';
 
 type AgentConfig = {
-    model: string;
-    providers: Record<string, unknown>;
-    tools: Record<string, unknown>;
+    agents?: {
+        defaults?: {
+            model?: string;
+            [key: string]: unknown;
+        };
+        [key: string]: unknown;
+    };
+    channels?: Record<string, unknown>;
+    providers?: Record<string, unknown>;
+    tools?: Record<string, unknown>;
     [key: string]: unknown;
 };
 
@@ -31,9 +38,42 @@ interface PicoClawWizardProps {
 
 export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoClawWizardProps) {
     const existingConfig: AgentConfig = agent.agent_desired_state?.config || {
-        model: "openrouter/auto",
-        providers: {},
-        tools: {}
+        agents: {
+            defaults: {
+                workspace: "~/.picoclaw/workspace",
+                restrict_to_workspace: true,
+                model: "glm-4.7",
+                max_tokens: 8192,
+                temperature: 0.7,
+                max_tool_iterations: 20
+            }
+        },
+        channels: {
+            telegram: { enabled: false, token: "YOUR_TELEGRAM_BOT_TOKEN", proxy: "", allow_from: ["YOUR_USER_ID"] },
+            discord: { enabled: false, token: "YOUR_DISCORD_BOT_TOKEN", allow_from: [] },
+            maixcam: { enabled: false, host: "0.0.0.0", port: 18790, allow_from: [] },
+            whatsapp: { enabled: false, bridge_url: "ws://localhost:3001", allow_from: [] },
+            feishu: { enabled: false, app_id: "", app_secret: "", encrypt_key: "", verification_token: "", allow_from: [] },
+            dingtalk: { enabled: false, client_id: "YOUR_CLIENT_ID", client_secret: "YOUR_CLIENT_SECRET", allow_from: [] },
+            slack: { enabled: false, bot_token: "xoxb-YOUR-BOT-TOKEN", app_token: "xapp-YOUR-APP-TOKEN", allow_from: [] },
+            line: { enabled: false, channel_secret: "YOUR_LINE_CHANNEL_SECRET", channel_access_token: "YOUR_LINE_CHANNEL_ACCESS_TOKEN", webhook_host: "0.0.0.0", webhook_port: 18791, webhook_path: "/webhook/line", allow_from: [] }
+        },
+        providers: {
+            anthropic: { api_key: "", api_base: "" },
+            openai: { api_key: "", api_base: "" },
+            openrouter: { api_key: "sk-or-v1-xxx", api_base: "" },
+            groq: { api_key: "gsk_xxx", api_base: "" },
+            zhipu: { api_key: "YOUR_ZHIPU_API_KEY", api_base: "" },
+            gemini: { api_key: "", api_base: "" },
+            vllm: { api_key: "", api_base: "" },
+            nvidia: { api_key: "nvapi-xxx", api_base: "", proxy: "http://127.0.0.1:7890" },
+            moonshot: { api_key: "sk-xxx", api_base: "" }
+        },
+        tools: {
+            web: { search: { api_key: "YOUR_BRAVE_API_KEY", max_results: 5 } }
+        },
+        heartbeat: { enabled: true, interval: 30 },
+        gateway: { host: "0.0.0.0", port: 18790 }
     };
 
     const [config, setConfig] = useState<AgentConfig>(existingConfig);
@@ -41,6 +81,8 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
     const [saving, setSaving] = useState(false);
     const [activeTab, setActiveTab] = useState<'general' | 'providers' | 'json'>('general');
     const [jsonError, setJsonError] = useState<string | null>(null);
+
+    const [jsonInput, setJsonInput] = useState(JSON.stringify(existingConfig, null, 2));
 
     const handleSave = async () => {
         setSaving(true);
@@ -101,7 +143,10 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
                                 <span className="font-medium text-sm">Providers</span>
                             </button>
                             <button
-                                onClick={() => setActiveTab('json')}
+                                onClick={() => {
+                                    setActiveTab('json');
+                                    setJsonInput(JSON.stringify(config, null, 2));
+                                }}
                                 className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition-all ${activeTab === 'json' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'text-zinc-400 hover:bg-white/5'}`}
                             >
                                 <Code className="w-4 h-4" />
@@ -127,8 +172,20 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
                                     <label className="block text-sm font-medium text-zinc-400">Model ID</label>
                                     <input
                                         type="text"
-                                        value={config.model}
-                                        onChange={(e) => updateConfig('model', e.target.value)}
+                                        value={(config.agents?.defaults as any)?.model || ''}
+                                        onChange={(e) => {
+                                            const newModel = e.target.value;
+                                            setConfig(prev => ({
+                                                ...prev,
+                                                agents: {
+                                                    ...prev.agents,
+                                                    defaults: {
+                                                        ...(prev.agents?.defaults as any),
+                                                        model: newModel
+                                                    }
+                                                }
+                                            }));
+                                        }}
                                         placeholder="openrouter/auto"
                                         className="w-full bg-zinc-900/50 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-purple-500/50 transition-colors"
                                     />
@@ -148,10 +205,12 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
                         {activeTab === 'json' && (
                             <div className="h-full flex flex-col space-y-4">
                                 <textarea
-                                    value={JSON.stringify(config, null, 2)}
+                                    value={jsonInput}
                                     onChange={(e) => {
+                                        const newValue = e.target.value;
+                                        setJsonInput(newValue);
                                         try {
-                                            const parsed = JSON.parse(e.target.value);
+                                            const parsed = JSON.parse(newValue);
                                             setConfig(parsed);
                                             setJsonError(null);
                                         } catch (err) {
