@@ -84,74 +84,76 @@ export function StepNeuralConfig({
                 )}
             </section>
 
-            <section className="space-y-4 pt-4 border-t border-white/5">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-primary">Model Selection</label>
-                        <div className="flex flex-col gap-1">
-                            {config.modelId && !availableModels.length && (
-                                <p className="text-[10px] text-muted-foreground/60 font-medium italic">
-                                    Current Model: {getNested(existingConfig, ['agents', 'defaults', 'models', `${config.provider}/${config.modelId}`, 'name']) || config.modelId}
+            {config.provider !== 'blueprint_shared' && (
+                <section className="space-y-4 pt-4 border-t border-white/5">
+                    <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-primary">Model Selection</label>
+                            <div className="flex flex-col gap-1">
+                                {config.modelId && !availableModels.length && (
+                                    <p className="text-[10px] text-muted-foreground/60 font-medium italic">
+                                        Current Model: {getNested(existingConfig, ['agents', 'defaults', 'models', `${config.provider}/${config.modelId}`, 'name']) || config.modelId}
+                                    </p>
+                                )}
+                                <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
+                                    💡 Tip: Choose models with large context windows (like gpt-4o) if you plan on using many tools or deep project context.
                                 </p>
-                            )}
-                            <p className="text-[10px] text-muted-foreground/40 leading-relaxed">
-                                💡 Tip: Choose models with large context windows (like gpt-4o) if you plan on using many tools or deep project context.
-                            </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowAllModels(!showAllModels)}
+                                className={`text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 ${showAllModels ? 'text-primary' : 'text-muted-foreground hover:text-white'}`}
+                            >
+                                {showAllModels ? <Unlock size={12} /> : <Lock size={12} />}
+                                {showAllModels ? 'All' : 'Filtered'}
+                            </button>
+                            <button
+                                onClick={() => fetchModels(config.provider, config.token, config.modelId)}
+                                disabled={!config.token && config.provider !== 'blueprint_shared'}
+                                className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-30"
+                            >
+                                <Zap size={12} /> Sync
+                            </button>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => setShowAllModels(!showAllModels)}
-                            className={`text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-1 ${showAllModels ? 'text-primary' : 'text-muted-foreground hover:text-white'}`}
-                        >
-                            {showAllModels ? <Unlock size={12} /> : <Lock size={12} />}
-                            {showAllModels ? 'All' : 'Filtered'}
-                        </button>
-                        <button
-                            onClick={() => fetchModels(config.provider, config.token, config.modelId)}
-                            disabled={!config.token && config.provider !== 'blueprint_shared'}
-                            className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors flex items-center gap-1 disabled:opacity-30"
-                        >
-                            <Zap size={12} /> Sync
-                        </button>
-                    </div>
-                </div>
 
-                {fetchingModels ? (
-                    <div className="h-[150px] flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/5">
-                        <Loader2 size={24} className="animate-spin text-primary" />
-                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fetching neural models...</p>
-                    </div>
-                ) : modelError ? (
-                    <div className="p-6 rounded-2xl border border-red-500/20 bg-red-500/5 text-center">
-                        <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">{modelError}</p>
-                    </div>
-                ) : availableModels.length > 0 ? (
-                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
-                        {availableModels
-                            .filter(m => showAllModels || m.isCompatible)
-                            .map((m: Model) => (
-                                <button
-                                    key={m.id}
-                                    onClick={() => setConfig((prev) => ({ ...prev, modelId: m.id }))}
-                                    className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${config.modelId === m.id ? 'border-primary bg-primary/5' : 'border-white/5 bg-white/5 hover:border-white/10'} ${!m.isCompatible ? 'opacity-40' : ''}`}
-                                >
-                                    <div className="size-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
-                                        <Cpu size={12} className={config.modelId === m.id ? 'text-primary' : 'text-muted-foreground'} />
-                                    </div>
-                                    <div className="flex-1 truncate">
-                                        <h4 className="font-bold text-[10px] uppercase tracking-widest truncate">{m.name || m.id}</h4>
-                                    </div>
-                                    {config.modelId === m.id && <Check size={12} className="text-primary" />}
-                                </button>
-                            ))}
-                    </div>
-                ) : (
-                    <div className="h-[150px] flex flex-col items-center justify-center text-center p-6 bg-white/5 rounded-3xl border border-dashed border-white/10">
-                        <p className="text-[10px] font-medium text-muted-foreground italic">Enter API key to synchronize available neural models or select a provider.</p>
-                    </div>
-                )}
-            </section>
+                    {fetchingModels ? (
+                        <div className="h-[150px] flex flex-col items-center justify-center gap-4 bg-white/5 rounded-3xl border border-white/5">
+                            <Loader2 size={24} className="animate-spin text-primary" />
+                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Fetching neural models...</p>
+                        </div>
+                    ) : modelError ? (
+                        <div className="p-6 rounded-2xl border border-red-500/20 bg-red-500/5 text-center">
+                            <p className="text-[10px] text-red-400 font-bold uppercase tracking-wider">{modelError}</p>
+                        </div>
+                    ) : availableModels.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto pr-2 custom-scrollbar">
+                            {availableModels
+                                .filter(m => showAllModels || m.isCompatible)
+                                .map((m: Model) => (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setConfig((prev) => ({ ...prev, modelId: m.id }))}
+                                        className={`p-3 rounded-xl border text-left transition-all flex items-center gap-3 ${config.modelId === m.id ? 'border-primary bg-primary/5' : 'border-white/5 bg-white/5 hover:border-white/10'} ${!m.isCompatible ? 'opacity-40' : ''}`}
+                                    >
+                                        <div className="size-6 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                                            <Cpu size={12} className={config.modelId === m.id ? 'text-primary' : 'text-muted-foreground'} />
+                                        </div>
+                                        <div className="flex-1 truncate">
+                                            <h4 className="font-bold text-[10px] uppercase tracking-widest truncate">{m.name || m.id}</h4>
+                                        </div>
+                                        {config.modelId === m.id && <Check size={12} className="text-primary" />}
+                                    </button>
+                                ))}
+                        </div>
+                    ) : (
+                        <div className="h-[150px] flex flex-col items-center justify-center text-center p-6 bg-white/5 rounded-3xl border border-dashed border-white/10">
+                            <p className="text-[10px] font-medium text-muted-foreground italic">Enter API key to synchronize available neural models or select a provider.</p>
+                        </div>
+                    )}
+                </section>
+            )}
         </div>
     );
 }

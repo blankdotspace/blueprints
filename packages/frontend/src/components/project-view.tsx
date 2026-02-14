@@ -843,14 +843,17 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                         </div>
                                         <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-widest">
                                             <div className="flex items-center gap-2">
-                                                <span className={displayStatus === 'Running' ? 'text-green-500' : 'text-muted-foreground'}>
+                                                <span className={`
+                                                    ${displayStatus === 'Running' ? 'text-green-500' : ''}
+                                                    ${isWaiting ? 'text-amber-500/60 italic animate-pulse' : 'text-muted-foreground'}
+                                                `}>
                                                     {displayStatus}
                                                 </span>
-                                                {isWaiting && (
+                                                {/* {isWaiting && (
                                                     <span className="text-amber-500/60 lowercase italic animate-pulse">
                                                         Wait for agent...
                                                     </span>
-                                                )}
+                                                )} */}
                                             </div>
                                             <span className="text-white/20">•</span>
                                             <span className="text-muted-foreground/50">Framework: {agent.framework || 'eliza'}</span>
@@ -1004,6 +1007,6 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 cancelText="Understood"
                 type="warning"
             />
-        </div>
+        </div >
     );
 }

@@ -17,9 +17,8 @@
     "build:frontend": "bun run --cwd packages/shared build && bun run --cwd packages/frontend build",
     "build:backend": "bun run --cwd packages/shared build && bun run --cwd packages/backend build",
     "build:worker": "bun run --cwd packages/shared build && bun run --cwd packages/worker build",
-    "build:all": "bun run --cwd packages/shared build && bun --workspaces run build",
-    "rebuild:all": "bun install && bun run build:all",
-    "build": "bun --workspaces run build",
+    "build": "bun run --cwd packages/shared build && bun --workspaces run build",
+    "rebuild": "rm -rf node_modules && bun install && bun run build",
     "lint": "bun --workspaces run lint"
   },
   "devDependencies": {

@@ -221,11 +221,11 @@ export function startReconciler() {
     logger.info(`Starting Reconciler (Interval: ${RECONCILE_INTERVAL_MS}ms)...`);
     setInterval(reconcile, RECONCILE_INTERVAL_MS);
 
-    // Zombie Cleanup: Run every 5 minutes
-    setInterval(cleanupOrphanContainers, 5 * 60 * 1000);
+    // Zombie Cleanup: Run every 24 hours
+    setInterval(cleanupOrphanContainers, 24 * 60 * 60 * 1000);
 
     // Initial run
     reconcile();
-    cleanupOrphanContainers();
+    // cleanupOrphanContainers();
     startStateListener();
 }

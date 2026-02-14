@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Bot, Zap, Cpu, Share2, Terminal, Check } from 'lucide-react';
+import { Bot, Zap, Cpu, Share2, Check } from 'lucide-react';
 import { OpenClawConfig } from './types';
 
 interface StepProviderProps {
@@ -20,7 +20,6 @@ export function StepProvider({ name, config, setConfig, mkEnabled }: StepProvide
         { id: 'groq', name: 'Groq', desc: 'Ultra-fast LPU', Icon: Zap, color: 'text-orange-400' },
         { id: 'deepseek', name: 'DeepSeek', desc: 'Advanced Reasoning', Icon: Cpu, color: 'text-blue-500' },
         { id: 'mistral', name: 'Mistral IT', desc: 'Efficient Open Models', Icon: Bot, color: 'text-blue-300' },
-        { id: 'ollama', name: 'Local (Ollama)', desc: 'Run locally on host', Icon: Terminal, color: 'text-slate-400' },
     ];
 
     return (
