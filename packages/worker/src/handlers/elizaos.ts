@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase';
 import { logger } from '../lib/logger';
 import { docker } from '../lib/docker';
 import { getAgentContainerName, renameKey } from '../lib/utils';
-import { DOCKER_NETWORK_NAME, ELIZAOS_IMAGE_BASE } from '../lib/constants';
+import { DOCKER_NETWORK_NAME, ELIZAOS_IMAGE_BASE, VPS_PUBLIC_IP } from '../lib/constants';
 import { cryptoUtils } from '@eliza-manager/shared/crypto';
 
 // Project-level lock to prevent concurrent modifications to the same shared container
@@ -38,8 +38,8 @@ function getAgentHostPath(agentId: string, projectId?: string) {
     return projectId ? path.join(root, projectId) : path.join(root, agentId);
 }
 
-export async function startElizaOSAgent(agentId: string, config: any, projectId?: string) {
-    logger.info(`Starting ElizaOS agent ${agentId} (Project: ${projectId || 'legacy'})`);
+export async function startElizaOSAgent(agentId: string, config: any, metadata: any = {}, forceDoctor = false, projectId?: string) {
+    logger.info(`Starting ElizaOS agent ${agentId} (Project: ${projectId || 'legacy'}, doctor=${forceDoctor})`);
 
     await supabase.from('agent_actual_state').upsert({
         agent_id: agentId,
@@ -48,14 +48,14 @@ export async function startElizaOSAgent(agentId: string, config: any, projectId?
 
     if (projectId) {
         await withLock(projectId, async () => {
-            await doStartElizaOS(agentId, config, projectId);
+            await doStartElizaOS(agentId, config, metadata, forceDoctor, projectId);
         });
     } else {
-        await doStartElizaOS(agentId, config);
+        await doStartElizaOS(agentId, config, metadata, forceDoctor);
     }
 }
 
-async function doStartElizaOS(agentId: string, config: any, projectId?: string) {
+async function doStartElizaOS(agentId: string, config: any, metadata: any = {}, forceDoctor = false, projectId?: string) {
     const containerName = getAgentContainerName(agentId, 'elizaos', projectId);
     let containerRunning = false;
 
@@ -72,6 +72,9 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
 
     const decrypted = cryptoUtils.decryptConfig(config);
     let finalConfig = renameKey(decrypted, 'lore', 'knowledge');
+
+    // Ensure the ID matches our database UUID so the API can find it
+    finalConfig.id = agentId;
 
     // Fix: modelProvider is not a valid key in the character schema.
     // We transform it into a plugin and remove the key to pass validation.
@@ -91,6 +94,27 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
         }
 
         delete finalConfig.modelProvider;
+    }
+
+    // --- SECRET MAPPING ---
+    if (!finalConfig.settings) finalConfig.settings = {};
+    if (!finalConfig.settings.secrets) finalConfig.settings.secrets = {};
+
+    const secrets = finalConfig.settings.secrets;
+
+    // Help elizaos-openai plugin find the key if it's in a flattened config
+    const apiKey = decrypted.OPENAI_API_KEY || decrypted.openai_api_key || metadata.OPENAI_API_KEY || metadata.openai_api_key;
+    if (apiKey) secrets.OPENAI_API_KEY = apiKey;
+
+    const anthropicKey = decrypted.ANTHROPIC_API_KEY || metadata.ANTHROPIC_API_KEY;
+    if (anthropicKey) secrets.ANTHROPIC_API_KEY = anthropicKey;
+
+    const groqKey = decrypted.GROQ_API_KEY || metadata.GROQ_API_KEY;
+    if (groqKey) secrets.GROQ_API_KEY = groqKey;
+
+    // Handle generic "apiKey" from wizard metadata
+    if (metadata.apiKey && !secrets.OPENAI_API_KEY) {
+        secrets.OPENAI_API_KEY = metadata.apiKey;
     }
 
     const agentName = finalConfig.name || agentId;
@@ -116,12 +140,28 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
         logger.info(`Adding agent ${agentId} to running container ${containerName}`);
         try {
             const exec = await docker.createExec(containerName, {
-                Cmd: ['/bin/bash', '-c', `export PATH="/root/.bun/bin:$PATH"; elizaos agent start --path "/agent-home/${agentId}.json"`],
+                Cmd: ['/usr/local/bin/elizaos', 'agent', 'start', '--path', `/agent-home/${agentId}.json`],
                 AttachStdout: true,
                 AttachStderr: true
             });
-            await docker.startExec(exec.Id, { Detach: false });
-            logger.info(`Agent ${agentId} started dynamically in ${containerName}`);
+            const output = await docker.startExec(exec.Id, { Detach: false });
+            const outputStr = typeof output === 'string' ? output : JSON.stringify(output);
+
+            if (outputStr.includes('error') || outputStr.includes('Error')) {
+                logger.error(`Dynamic start failed for agent ${agentId}: ${outputStr}`);
+                throw new Error(outputStr);
+            }
+
+            logger.info(`Agent ${agentId} started dynamically in ${containerName}: ${outputStr.slice(0, 100)}...`);
+
+            const hash = projectId ? [...projectId].reduce((a, c) => a + c.charCodeAt(0), 0) : 0;
+            const hostPort = 20000 + (hash % 1000);
+            const endpointUrl = `http://${VPS_PUBLIC_IP}:${hostPort}`;
+
+            await supabase.from('agent_actual_state').upsert({
+                agent_id: agentId,
+                endpoint_url: endpointUrl
+            });
         } catch (err: any) {
             logger.error(`Failed to dynamically start agent ${agentId}: ${err.message}`);
             // Fallback: Restart container? No, let reconciler handle retry or report error.
@@ -135,6 +175,10 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
             await docker.pullImage(ELIZAOS_IMAGE_BASE);
         }
 
+        const hash = projectId ? [...projectId].reduce((a, c) => a + c.charCodeAt(0), 0) : 0;
+        const hostPort = 20000 + (hash % 1000);
+        const endpointUrl = `http://${VPS_PUBLIC_IP}:${hostPort}`;
+
         await docker.createContainer({
             Image: ELIZAOS_IMAGE_BASE,
             name: containerName,
@@ -146,6 +190,8 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
                 '--character', `/agent-home/${agentId}.json`
             ],
 
+            ExposedPorts: { '3000/tcp': {} },
+
             Env: [
                 `AGENT_ID=${agentId}`,
                 `HOME=/agent-home`
@@ -155,6 +201,7 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
                 Binds: [
                     `${path.join(getAgentHostPath(agentId, projectId), 'home')}:/agent-home`
                 ],
+                PortBindings: { '3000/tcp': [{ HostPort: hostPort.toString(), HostIp: '127.0.0.1' }] },
                 RestartPolicy: { Name: 'unless-stopped' }
             },
 
@@ -167,7 +214,13 @@ async function doStartElizaOS(agentId: string, config: any, projectId?: string) 
 
         const container = await docker.getContainer(containerName);
         await container.start();
-        logger.info(`Container ${containerName} started with agent ${agentId}`);
+        logger.info(`Container ${containerName} started with agent ${agentId} on host port ${hostPort}`);
+
+        // Store endpoint in actual state
+        await supabase.from('agent_actual_state').upsert({
+            agent_id: agentId,
+            endpoint_url: endpointUrl
+        });
     }
 
     // Detect version

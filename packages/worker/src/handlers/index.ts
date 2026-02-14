@@ -10,8 +10,8 @@ export interface AgentHandler {
 
 export const FRAMEWORK_HANDLERS: Record<string, AgentHandler> = {
     'elizaos': {
-        start: async (id, config, _metadata, _force, projectId) => {
-            return startElizaOSAgent(id, config, projectId);
+        start: async (id, config, metadata, force, projectId) => {
+            return startElizaOSAgent(id, config, metadata, force, projectId);
         },
         stop: stopElizaOSAgent,
         runCommand: runElizaOSCommand
