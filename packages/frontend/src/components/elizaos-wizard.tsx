@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot, Search, AlertTriangle } from 'lucide-react';
 import { useElizaPlugins } from '@/hooks/use-eliza-plugins';
 import { useRequiredSecrets } from '@/hooks/use-eliza-plugin-details';
+import ElizaLLMConfig from '@/components/eliza-llm-config';
+import { sortElizaPlugins } from '@/lib/eliza-plugin-utils';
 
 interface ElizaOSWizardProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -124,9 +126,9 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
                     ...finalConfig.settings,
                     secrets: filteredSecrets
                 },
-                // Ensure unique plugins and remove empty strings if any
+                // Ensure unique plugins, remove empty strings, and sort per ElizaOS recommended order
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                plugins: [...new Set(finalConfig.plugins || [])].filter(Boolean) as any
+                plugins: sortElizaPlugins([...new Set(finalConfig.plugins || [])].filter(Boolean) as string[]) as any
             };
 
             await onSave(finalConfig, null, finalConfig.name);
@@ -301,9 +303,9 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
                         <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 self-start">
                             {[
                                 { id: 'profile', label: 'Identity', icon: <User size={14} /> },
+                                { id: 'plugins', label: 'Plugins', icon: <Zap size={14} /> },
                                 { id: 'behavior', label: 'Mindset', icon: <Sparkles size={14} /> },
                                 { id: 'style', label: 'Linguistics', icon: <MessageSquare size={14} /> },
-                                { id: 'plugins', label: 'Skills', icon: <Zap size={14} /> },
                                 { id: 'secrets', label: 'Secrets', icon: <Shield size={14} /> },
                                 { id: 'logs', label: 'Neural Logs', icon: <Code size={14} /> }
                             ].map(tab => (
@@ -401,61 +403,20 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
                                         </div>
                                     </div>
 
-                                    <section className="space-y-6">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                <Sparkles size={16} className="text-primary" />
-                                            </div>
-                                            <h3 className="font-black uppercase tracking-widest text-xs">Intelligence Core</h3>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-8">
-                                            <div className="group">
-                                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-primary">Model Architecture</label>
-                                                <select
-                                                    value={config.modelProvider || 'openai'}
-                                                    onChange={(e) => {
-                                                        const provider = e.target.value;
-                                                        updateField('modelProvider', provider);
-
-                                                        // Auto-select corresponding plugin
-                                                        const providerMap: Record<string, string> = {
-                                                            'openai': '@elizaos/plugin-openai',
-                                                            'anthropic': '@elizaos/plugin-anthropic',
-                                                            'google': '@elizaos/plugin-google-genai',
-                                                            'llama_local': '@elizaos/plugin-ollama'
-                                                        };
-
-                                                        // Also check for google-genai if google doesn't match
-                                                        const pluginId = providerMap[provider];
-                                                        const inputs = config.plugins || [];
-
-                                                        if (pluginId && !inputs.includes(pluginId)) {
-                                                            // Check if we should add it.
-                                                            // For now, let's just add it if it's not there.
-                                                            // We might want to remove old provider plugins, but users might want multi-provider.
-                                                            // Let's just Add.
-                                                            updateField('plugins', [...inputs, pluginId]);
-                                                        }
-                                                    }}
-                                                    className="w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-5 py-4 focus:border-primary/50 outline-none transition-all font-bold group-hover:bg-white/[0.08] appearance-none"
-                                                >
-                                                    <option value="openai" className="bg-slate-950 text-white">OpenAI (GPT-4o Omniscience)</option>
-                                                    <option value="anthropic" className="bg-slate-950 text-white">Anthropic (Claude 3.5 Sonnet)</option>
-                                                    <option value="google" className="bg-slate-950 text-white">Google (Gemini 1.5 Ultra)</option>
-                                                    <option value="llama_local" className="bg-slate-950 text-white">Edge Compute (Llama 3 70B)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </section>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                         {renderArraySection('Bio Summary', 'bio', <User size={16} className="text-primary" />, 'Defining trait...', 'primary')}
                                         {renderArraySection('Knowledge Base', 'knowledge', <Database size={16} className="text-indigo-400" />, 'Information segment...', 'indigo-500')}
                                     </div>
+                                    {renderArraySection('Topics', 'topics', <Globe size={16} className="text-green-400" />, 'Subject matter...', 'green-400')}
                                 </div>
                             )}
 
                             {activeTab === 'behavior' && (
                                 <div className="space-y-12">
+                                    {/* LLM Provider Configuration */}
+                                    <ElizaLLMConfig config={config} updateField={updateField} />
+
+                                    {/* System Command */}
                                     <section className="space-y-6">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="size-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -473,15 +434,12 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
                                             />
                                         </div>
                                     </section>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                                        {renderArraySection('Adjectives', 'adjectives', <Sparkles size={16} className="text-amber-400" />, 'Personality trait...', 'amber-400')}
-                                        {renderArraySection('Topics', 'topics', <Globe size={16} className="text-green-400" />, 'Subject matter...', 'green-400')}
-                                    </div>
                                 </div>
                             )}
 
                             {activeTab === 'style' && (
                                 <div className="space-y-12">
+                                    {renderArraySection('Adjectives', 'adjectives', <Sparkles size={16} className="text-amber-400" />, 'Personality trait...', 'amber-400')}
                                     {renderArraySection('Global Style', 'style.all', <Settings size={16} className="text-slate-400" />, 'Universal writing rule...', 'slate-400')}
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                         {renderArraySection('Chat Stylings', 'style.chat', <MessageSquare size={16} className="text-blue-400" />, 'Conversational rule...', 'blue-400')}
@@ -492,12 +450,12 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
 
                             {activeTab === 'plugins' && (
                                 <div className="space-y-8">
-                                    <div className="flex items-center gap-2 mb-4">
+                                    {/* <div className="flex items-center gap-2 mb-4">
                                         <div className="size-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
                                             <Zap size={16} className="text-pink-400" />
                                         </div>
                                         <h3 className="font-black uppercase tracking-widest text-xs">Skills</h3>
-                                    </div>
+                                    </div> */}
                                     <div className="relative mb-6">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                                         <input
