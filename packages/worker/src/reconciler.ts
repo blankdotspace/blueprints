@@ -2,8 +2,7 @@ import { supabase } from './lib/supabase';
 import { logger } from './lib/logger';
 import { docker } from './lib/docker';
 import { getConfigHash, getAgentContainerName } from './lib/utils';
-import { startOpenClawAgent, stopOpenClawAgent } from './handlers/openclaw';
-import { startElizaOSAgent, stopElizaOSAgent } from './handlers/elizaos';
+import { getHandler } from './handlers';
 import { RECONCILE_INTERVAL_MS } from './lib/constants';
 
 let isReconciling = false;
@@ -67,7 +66,7 @@ export async function reconcile() {
             const status = actual?.status || 'stopped';
             let isRunning = status === 'running';
 
-            // Verify Docker state for OpenClaw/Eliza agents
+            // Verify Docker state
             const containerName = getAgentContainerName(agent.id, agent.framework);
             const containerIsReallyRunning = runningContainers.has(containerName);
 
@@ -86,8 +85,8 @@ export async function reconcile() {
             if (purgeDate && now >= purgeDate) {
                 logger.info(`[TERMINATE] Executing final deletion for agent ${agent.id}...`);
                 try {
-                    if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                    else await stopElizaOSAgent(agent.id);
+                    const handler = getHandler(agent.framework);
+                    await handler.stop(agent.id);
                     // ONLY delete from DB if cleanup succeeded
                     await supabase.from('agents').delete().eq('id', agent.id);
                     logger.info(`[TERMINATE] Agent ${agent.id} successfully purged from both Docker and DB.`);
@@ -101,59 +100,71 @@ export async function reconcile() {
             const lastHash = configHashes.get(agent.id);
             const configChanged = lastHash && lastHash !== currentHash;
 
-            if (shouldBeRunning && (!isRunning || configChanged)) {
+            // CPU SAFETY: Check for retry limit
+            const currentFailCount = failCounts.get(agent.id) || 0;
 
-                // CPU SAFETY: Check for retry limit
-                const currentFailCount = failCounts.get(agent.id) || 0;
+            if (shouldBeRunning) {
                 if (currentFailCount >= 3) {
                     logger.error(`[CPU SAFETY] Agent ${agent.id} hit max retries (${currentFailCount}). Disabling...`);
                     await supabase.from('agent_desired_state').update({ enabled: false }).eq('agent_id', agent.id);
-                    failCounts.delete(agent.id); // Reset so it can be tried again if user re-enables
+                    failCounts.delete(agent.id);
                     return;
                 }
 
-                try {
-                    if (configChanged && isRunning) {
-                        logger.info(`Config changed for agent ${agent.id}. Restarting...`);
-                        if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                        else await stopElizaOSAgent(agent.id);
-                    }
-
-                    if (agent.framework === 'openclaw') {
+                if (!isRunning || configChanged) {
+                    // Ensure running
+                    try {
+                        const handler = getHandler(agent.framework);
                         const forceDoctor = currentFailCount > 0;
-                        await startOpenClawAgent(agent.id, desired.config, desired.metadata, forceDoctor);
-                    } else {
-                        await startElizaOSAgent(agent.id, desired.config);
+
+                        // If config changed and it was running, stop it first
+                        if (configChanged && isRunning) {
+                            logger.info(`Config changed for agent ${agent.id}. Restarting...`);
+                            await handler.stop(agent.id);
+                        }
+
+                        // Unified start call
+                        await handler.start(agent.id, desired.config, desired.metadata, forceDoctor);
+
+                        // Update config hash
+                        configHashes.set(agent.id, currentHash);
+
+                        // Success! Reset fail count
+                        if (failCounts.has(agent.id)) {
+                            failCounts.delete(agent.id);
+                            logger.info(`Agent ${agent.id} started successfully. Failure count reset.`);
+                        }
+
+                    } catch (startError: any) {
+                        const newCount = currentFailCount + 1;
+                        failCounts.set(agent.id, newCount);
+                        logger.error(`Failed to start agent ${agent.id} (Attempt ${newCount}/3):`, startError.message);
+
+                        // Update DB with error status so frontend can see it
+                        await supabase.from('agent_actual_state').upsert({
+                            agent_id: agent.id,
+                            status: 'error',
+                            error_message: startError.message,
+                            last_sync: new Date().toISOString()
+                        });
                     }
-                    configHashes.set(agent.id, currentHash);
-
-                    // Success! Reset fail count
-                    if (failCounts.has(agent.id)) {
-                        failCounts.delete(agent.id);
-                        logger.info(`Agent ${agent.id} started successfully. Failure count reset.`);
-                    }
-
-                } catch (startError: any) {
-                    const newCount = currentFailCount + 1;
-                    failCounts.set(agent.id, newCount);
-                    logger.error(`Failed to start agent ${agent.id} (Attempt ${newCount}/3):`, startError.message);
-
-                    // Update DB with error status so frontend can see it
-                    await supabase.from('agent_actual_state').upsert({
-                        agent_id: agent.id,
-                        status: 'error',
-                        error_message: startError.message,
-                        last_sync: new Date().toISOString()
-                    });
+                } else {
+                    // Running and config matches, just update hash if missing (restart recovery)
+                    if (!lastHash) configHashes.set(agent.id, currentHash);
                 }
 
-            } else if (!shouldBeRunning && isRunning) {
-                if (agent.framework === 'openclaw') await stopOpenClawAgent(agent.id);
-                else await stopElizaOSAgent(agent.id);
-                configHashes.delete(agent.id);
-                failCounts.delete(agent.id);
-            } else if (shouldBeRunning && isRunning && !lastHash) {
-                configHashes.set(agent.id, currentHash);
+            } else {
+                // Should NOT be running
+                if (isRunning) {
+                    try {
+                        const handler = getHandler(agent.framework);
+                        await handler.stop(agent.id);
+                        configHashes.delete(agent.id);
+                        failCounts.delete(agent.id);
+                    } catch (err: any) {
+                        logger.error(`Failed to stop agent ${agent.id}: ${err.message}`);
+                    }
+                }
             }
         })));
 
@@ -179,7 +190,7 @@ async function cleanupOrphanContainers() {
         for (const container of containers) {
             const name = container.Names[0].replace('/', '');
             // Pattern: [framework]-[agent_id]
-            const match = name.match(/^(openclaw|elizaos)-([a-f0-9-]{36})$/);
+            const match = name.match(/^([a-z0-9]+)-([a-f0-9-]{36})$/);
             if (match) {
                 const agentId = match[2];
                 if (!activeAgentIds.has(agentId)) {

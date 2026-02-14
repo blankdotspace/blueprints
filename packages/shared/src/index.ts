@@ -223,9 +223,13 @@ export const OpenClawConfigSchema = z.object({
 
 export type OpenClawConfig = z.infer<typeof OpenClawConfigSchema>;
 
+
+export const SUPPORTED_FRAMEWORKS = ['elizaos', 'openclaw', 'picoclaw'] as const;
+export type SupportedFramework = typeof SUPPORTED_FRAMEWORKS[number];
+
 export const CreateAgentSchema = z.object({
     name: z.string().min(1).max(100),
-    framework: z.enum(['elizaos', 'openclaw']).default('elizaos'),
+    framework: z.enum(SUPPORTED_FRAMEWORKS).default('elizaos'),
     templateId: z.string().optional(),
     configTemplate: z.record(z.string(), z.any()).optional(),
     metadata: z.record(z.string(), z.any()).optional()

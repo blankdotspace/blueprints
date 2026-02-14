@@ -18,9 +18,10 @@ fi
 SCRIPTS=(
     "1-setup-vps.sh"
     "2.1-elizaos.sh"
-    "2.1-openclaw.sh"
-    "4-setup-network.sh"
-    "4.1-build-worker-docker.sh"
+    "2.2-openclaw.sh"
+    "2.3-picoclaw.sh"
+    "3-setup-network.sh"
+    "4-build-worker-docker.sh"
     "5-vps-diagnostics.sh"
     "6-setup-auto-deploy.sh"
 )
