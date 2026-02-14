@@ -102,11 +102,27 @@ export async function startElizaAgent(agentId: string, config: any) {
     const container = await docker.getContainer(containerName);
     await container.start();
 
+    // Detect version from container
+    let detectedVersion = 'unknown';
+    try {
+        const execInfo = await docker.createExec(containerName, {
+            Cmd: ['elizaos', '--version'],
+            AttachStdout: true,
+            AttachStderr: true
+        });
+        const output = await docker.startExec(execInfo.Id, { Detach: false });
+        detectedVersion = output.trim().replace(/[^\x20-\x7E\n]/g, '');
+        logger.info(`Detected ElizaOS version ${detectedVersion} for agent ${agentId}`);
+    } catch (vErr: any) {
+        logger.warn(`Could not detect version for Eliza agent ${agentId}: ${vErr.message}`);
+    }
+
     await supabase.from('agent_actual_state').upsert({
         agent_id: agentId,
         status: 'running',
         last_sync: new Date().toISOString(),
-        error_message: null
+        error_message: null,
+        version: detectedVersion
     });
 }
 

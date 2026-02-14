@@ -130,6 +130,7 @@ export interface Runtime {
     name: string;
     eliza_api_url: string;
     auth_token: string;
+    version?: string;
     created_at: string;
 }
 
@@ -156,6 +157,7 @@ export interface AgentActualState {
     endpoint_url: string | null;
     error_message?: string;
     effective_security_tier?: string; // Audit trail
+    version?: string;
 }
 
 // API Request/Response Schemas

@@ -45,6 +45,17 @@ export function sanitizeConfig(config: any): any {
         }
     }
 
+    // Auth Profile Cleanups
+    if (clean.auth?.profiles) {
+        Object.keys(clean.auth.profiles).forEach(key => {
+            const profile = clean.auth.profiles[key];
+            if (profile && typeof profile === 'object') {
+                // OpenClaw validation fails if 'token' is present in an auth profile
+                delete (profile as any).token;
+            }
+        });
+    }
+
     return clean;
 }
 

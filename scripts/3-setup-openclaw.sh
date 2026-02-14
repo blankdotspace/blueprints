@@ -46,15 +46,25 @@ echo "Using pnpm for installation..."
 pnpm install
 pnpm run build
 
-# 4. Build Docker Image
+# 4. Extract Version
+echo "🔍 Extracting OpenClaw version..."
+OC_VERSION=$(node -e "console.log(require('./package.json').version)")
+echo "Found version: $OC_VERSION"
+
+# 5. Build Docker Image
 echo "🐳 Building Docker image openclaw:local..."
 docker build -t openclaw:local .
 
 # Verify image exists
 docker image inspect openclaw:local >/dev/null || exit 1
 
-# 5. Clean up
+# 6. sync with database
+echo "🔄 Updating database registry..."
+cd ../..
+bun run scripts/supabase-utils/sync-framework.ts openclaw "$OC_VERSION" success "Manual setup-openclaw.sh build"
+
+# 7. Clean up
 echo "🧹 Cleaning up..."
 rm -rf "$TARGET_DIR"
 
-echo "✅ OpenClaw image is ready!"
+echo "✅ OpenClaw image is ready and registered!"

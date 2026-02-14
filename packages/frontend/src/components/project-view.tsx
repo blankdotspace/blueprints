@@ -16,6 +16,7 @@ import ElizaWizard from '@/components/eliza-wizard';
 import OpenClawWizard from '@/components/openclaw-wizard';
 import ChatInterface from '@/components/chat-interface';
 import ConfirmationModal from '@/components/confirmation-modal';
+import { Runtime } from '@eliza-manager/shared';
 
 interface LocalAgentState {
     commandState: 'idle' | 'start_requested' | 'stop_requested' | 'purge_requested' | 'abort_requested';
@@ -96,6 +97,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
     const [chattingAgentId, setChattingAgentId] = useState<string | null>(null);
     const [lastCreatedAgentId, setLastCreatedAgentId] = useState<string | null>(null);
     const [isLimitModalOpen, setIsLimitModalOpen] = useState(false);
+    const [runtimes, setRuntimes] = useState<Runtime[]>([]);
 
     const [purgeModal, setPurgeModal] = useState<{ isOpen: boolean; agentId: string | null }>({
         isOpen: false,
@@ -175,6 +177,12 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                     updateLocalState(a.id, { commandState: 'idle', commandId: undefined });
                 }
             });
+            // Fetch runtimes to compare versions
+            const rRes = await fetch(`${API_URL}/runtimes`, {
+                headers: { 'Authorization': `Bearer ${session.access_token}` },
+            });
+            if (rRes.ok) setRuntimes(await rRes.json());
+
         } catch (err) {
             const message = err instanceof Error ? err.message : 'Establishment failed';
             showNotification(message, 'error');
@@ -856,7 +864,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                                 )} */}
                                             </div>
                                             <span className="text-white/20">•</span>
-                                            <span className="text-muted-foreground/50">Framework: {agent.framework || 'eliza'}</span>
+                                            <span className="text-muted-foreground/50">{agent.framework || 'elizaos'}</span>
                                             <span className="text-white/20">•</span>
                                             {/* Status / Error Indicator */}
                                             {actual.status === 'error' ? (
@@ -900,7 +908,27 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                                     </span>
                                                 </button>
                                             ) : (
-                                                <span className="text-muted-foreground/50">Runtime: v1.0.4</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-muted-foreground/50">
+                                                        Runtime: {actual.version ? `${actual.version}` : 'up to date'}
+                                                    </span>
+                                                    {(() => {
+                                                        const frameworkRuntime = runtimes.find(r => r.name === `${agent.framework}-local`);
+                                                        const isOutdated = frameworkRuntime && actual.version && frameworkRuntime.version && actual.version !== frameworkRuntime.version;
+                                                        if (isOutdated) {
+                                                            return (
+                                                                <span
+                                                                    className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[8px] animate-pulse cursor-help"
+                                                                    title={`New version available: v${frameworkRuntime.version}. Restart agent to upgrade.`}
+                                                                >
+                                                                    <Activity size={8} />
+                                                                    UPGRADE AVAILABLE
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
                                             )}
                                         </div>
                                     </div>

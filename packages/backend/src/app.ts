@@ -15,6 +15,7 @@ import feedbackRoutes from './routes/feedback';
 import upgradeFeedbackRoutes from './routes/upgrade-feedback';
 import supportRoutes from './routes/support';
 import apiKeysRoutes from './routes/api-keys';
+import runtimeRoutes from './routes/runtimes';
 import rateLimit from '@fastify/rate-limit';
 
 const fastify = Fastify({
@@ -118,6 +119,7 @@ await fastify.register(async (authenticatedInstance) => {
     authenticatedInstance.register(upgradeFeedbackRoutes, { prefix: '/upgrade-feedback' });
     authenticatedInstance.register(supportRoutes, { prefix: '/support' });
     authenticatedInstance.register(apiKeysRoutes, { prefix: '/api-keys' });
+    authenticatedInstance.register(runtimeRoutes, { prefix: '/runtimes' });
 
     // Public settings endpoint
     authenticatedInstance.get('/settings/public', async () => {

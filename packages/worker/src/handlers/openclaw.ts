@@ -236,13 +236,39 @@ export async function startOpenClawAgent(
             return startOpenClawAgent(agentId, config, metadata, true);
         }
 
+        // Detect version from container
+        let detectedVersion = 'unknown';
+        try {
+            const execInfo = await docker.createExec(containerName, {
+                Cmd: ['node', 'openclaw.mjs', '--version'],
+                AttachStdout: true,
+                AttachStderr: true,
+                Tty: true
+            });
+            const output = await docker.startExec(execInfo.Id, { Detach: false, Tty: true });
+
+            // Robustly handle output - it might contain error messages followed by the version
+            const outputStr = typeof output === 'string' ? output : JSON.stringify(output);
+            const lines = outputStr.split('\n').map(l => l.trim()).filter(Boolean);
+            const lastLine = lines[lines.length - 1] || '';
+
+            // Match version pattern (e.g., 2026.2.9)
+            const versionMatch = lastLine.match(/\d+\.\d+\.\d+/);
+            detectedVersion = versionMatch ? versionMatch[0] : 'unknown';
+
+            logger.info(`Detected OpenClaw version ${detectedVersion} for agent ${agentId}`);
+        } catch (vErr: any) {
+            logger.warn(`Could not detect version for OpenClaw agent ${agentId}: ${vErr.message}`);
+        }
+
         await supabase.from('agent_actual_state').upsert({
             agent_id: agentId,
             status: 'running',
             endpoint_url: endpointUrl,
             last_sync: new Date().toISOString(),
             effective_security_tier: effectiveLevel.toString(),
-            error_message: null
+            error_message: null,
+            version: detectedVersion
         });
 
     } catch (err: any) {
