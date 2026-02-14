@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot, Search, AlertTriangle } from 'lucide-react';
 import { useElizaPlugins } from '@/hooks/use-eliza-plugins';
 import { useRequiredSecrets } from '@/hooks/use-eliza-plugin-details';
-import ElizaLLMConfig from '@/components/eliza-llm-config';
 import { sortElizaPlugins } from '@/lib/eliza-plugin-utils';
 
 interface ElizaOSWizardProps {
@@ -18,6 +17,13 @@ interface ElizaOSWizardProps {
 }
 
 // availablePlugins removed, using dynamic fetch from hook
+
+const CORE_AI_PROVIDERS = [
+    { id: '@elizaos/plugin-openai', name: 'OpenAI', desc: 'GPT-4o, GPT-4, and more' },
+    { id: '@elizaos/plugin-anthropic', name: 'Anthropic', desc: 'Claude 3.5 Sonnet, Opus' },
+    { id: '@elizaos/plugin-google-genai', name: 'Google', desc: 'Gemini 1.5 Pro, Flash' },
+    { id: '@elizaos/plugin-openrouter', name: 'OpenRouter', desc: 'Access 100+ open models' },
+];
 
 export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaOSWizardProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -413,9 +419,6 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
 
                             {activeTab === 'behavior' && (
                                 <div className="space-y-12">
-                                    {/* LLM Provider Configuration */}
-                                    <ElizaLLMConfig config={config} updateField={updateField} />
-
                                     {/* System Command */}
                                     <section className="space-y-6">
                                         <div className="flex items-center gap-2 mb-2">
@@ -450,12 +453,53 @@ export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaO
 
                             {activeTab === 'plugins' && (
                                 <div className="space-y-8">
-                                    {/* <div className="flex items-center gap-2 mb-4">
+                                    <div className="space-y-6 mb-12">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                <Cpu size={16} className="text-primary" />
+                                            </div>
+                                            <h3 className="font-black uppercase tracking-widest text-xs">Core AI Intelligence</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {CORE_AI_PROVIDERS.map(provider => {
+                                                const isActive = config.plugins?.includes(provider.id);
+                                                return (
+                                                    <div
+                                                        key={provider.id}
+                                                        onClick={() => togglePlugin(provider.id)}
+                                                        className={`p-6 rounded-[2rem] border transition-all cursor-pointer group relative overflow-hidden ${isActive
+                                                            ? 'bg-primary/10 border-primary/30'
+                                                            : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                                                    >
+                                                        <div className="relative z-10 flex flex-col gap-4">
+                                                            <div className={`size-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isActive ? 'bg-primary text-white shadow-lg' : 'bg-white/5 text-muted-foreground'}`}>
+                                                                <Zap size={24} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-black text-sm uppercase tracking-widest mb-1">{provider.name}</h4>
+                                                                <p className="text-[10px] text-muted-foreground/60 leading-relaxed">{provider.desc}</p>
+                                                            </div>
+                                                            <div className={`h-1 w-full rounded-full bg-white/5 overflow-hidden`}>
+                                                                <div className={`h-full transition-all duration-500 ${isActive ? 'w-full bg-primary' : 'w-0'}`} />
+                                                            </div>
+                                                        </div>
+                                                        {isActive && (
+                                                            <div className="absolute top-4 right-4 text-primary">
+                                                                <Shield size={16} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 mb-4">
                                         <div className="size-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
                                             <Zap size={16} className="text-pink-400" />
                                         </div>
-                                        <h3 className="font-black uppercase tracking-widest text-xs">Skills</h3>
-                                    </div> */}
+                                        <h3 className="font-black uppercase tracking-widest text-xs">Neural Plugins</h3>
+                                    </div>
                                     <div className="relative mb-6">
                                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
                                         <input

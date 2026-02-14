@@ -357,22 +357,40 @@ export function useRequiredSecrets(pluginNames: string[]) {
     const requiredSecrets = useMemo(() => {
         if (!pluginDetails) return [];
 
-        return pluginDetails.reduce(
-            (acc, plugin) => {
-                plugin.requiredSecrets.forEach((secret) => {
-                    // Avoid duplicates
-                    if (!acc.find((s) => s.name === secret.name)) {
-                        acc.push({
-                            ...secret,
-                            plugin: plugin.name,
-                        });
-                    }
+        // Hardcoded fallbacks for core providers to ensure they always show up
+        const WELL_KNOWN_SECRETS: Record<string, PluginSecret[]> = {
+            '@elizaos/plugin-openai': [{ name: 'OPENAI_API_KEY', required: true, description: 'OpenAI API Key for text and embeddings' }],
+            '@elizaos/plugin-anthropic': [{ name: 'ANTHROPIC_API_KEY', required: true, description: 'Anthropic API Key' }],
+            '@elizaos/plugin-google-genai': [{ name: 'GOOGLE_GENERATIVE_AI_API_KEY', required: true, description: 'Google Gemini API Key' }],
+            '@elizaos/plugin-openrouter': [{ name: 'OPENROUTER_API_KEY', required: true, description: 'OpenRouter API Key' }],
+        };
+
+        const acc: (PluginSecret & { plugin: string })[] = [];
+
+        // Add hardcoded secrets first if the plugin is in the list
+        pluginNames.forEach(name => {
+            if (WELL_KNOWN_SECRETS[name]) {
+                WELL_KNOWN_SECRETS[name].forEach(secret => {
+                    acc.push({ ...secret, plugin: name });
                 });
-                return acc;
-            },
-            [] as (PluginSecret & { plugin: string })[]
-        );
-    }, [pluginDetails]);
+            }
+        });
+
+        // Add discovered secrets from registry/package.json
+        pluginDetails.forEach(plugin => {
+            plugin.requiredSecrets.forEach((secret) => {
+                // Avoid duplicates with our well-known list
+                if (!acc.find((s) => s.name === secret.name)) {
+                    acc.push({
+                        ...secret,
+                        plugin: plugin.name,
+                    });
+                }
+            });
+        });
+
+        return acc;
+    }, [pluginDetails, pluginNames]);
 
     return {
         requiredSecrets,

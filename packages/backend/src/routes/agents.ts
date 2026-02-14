@@ -187,7 +187,10 @@ const agentRoutes: FastifyPluginAsync = async (fastify) => {
             name,
             modelProvider: 'openai',
             bio: [`I am ${name}, a new AI agent.`],
-            plugins: ['@elizaos/plugin-bootstrap']
+            plugins: [
+                '@elizaos/plugin-bootstrap',
+                '@elizaos/plugin-openai',
+            ]
         });
 
         const { metadata } = CreateAgentSchema.parse(request.body);
