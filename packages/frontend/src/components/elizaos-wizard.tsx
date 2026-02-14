@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot } from 'lucide-react';
+import { Save, X, Plus, Skull, Code, Layout, Loader2, Settings, Sparkles, Cpu, Globe, MessageSquare, Activity, User, Database, Zap, Shield, Bot, Search, AlertTriangle } from 'lucide-react';
+import { useElizaPlugins } from '@/hooks/use-eliza-plugins';
+import { useRequiredSecrets } from '@/hooks/use-eliza-plugin-details';
+import { sortElizaPlugins } from '@/lib/eliza-plugin-utils';
 
-interface ElizaWizardProps {
+interface ElizaOSWizardProps {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     agent: any;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -13,36 +16,37 @@ interface ElizaWizardProps {
     onClose: () => void;
 }
 
-const availablePlugins = [
-    { id: '@elizaos/plugin-bootstrap', name: 'Bootstrap', description: 'Core actions and message processing.' },
-    { id: '@elizaos/plugin-twitter', name: 'Twitter', description: 'Interact with the X (Twitter) platform.' },
-    { id: '@elizaos/plugin-discord', name: 'Discord', description: 'Seamless Discord integration.' },
-    { id: '@elizaos/plugin-sql', name: 'SQL', description: 'Database and persistence layer.' },
-    { id: '@elizaos/plugin-coingecko', name: 'CoinGecko', description: 'Real-time crypto market data.' },
+// availablePlugins removed, using dynamic fetch from hook
+
+const CORE_AI_PROVIDERS = [
+    { id: '@elizaos/plugin-openai', name: 'OpenAI', desc: 'GPT-4o, GPT-4, and more' },
+    { id: '@elizaos/plugin-anthropic', name: 'Anthropic', desc: 'Claude 3.5 Sonnet, Opus' },
+    { id: '@elizaos/plugin-google-genai', name: 'Google', desc: 'Gemini 1.5 Pro, Flash' },
+    { id: '@elizaos/plugin-openrouter', name: 'OpenRouter', desc: 'Access 100+ open models' },
 ];
 
-export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWizardProps) {
+export default function ElizaOSWizard({ agent, actual, onSave, onClose }: ElizaOSWizardProps) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const getOne = (val: any) => (Array.isArray(val) ? val[0] : val);
     const existingConfig = getOne(agent.agent_desired_state)?.config;
 
     // Default template based on user sample
     const defaultTemplate = {
-        name: agent.name || "Eliza",
-        username: agent.name?.toLowerCase().replace(/\s+/g, '_') || "eliza_ai",
+        name: agent.name || "ElizaOS Agent",
+        username: agent.name?.toLowerCase().replace(/\s+/g, '_') || "elizaos_agent",
         bio: [
             "An advanced AI assistant powered by elizaOS",
             "Specializes in technical support and creative problem-solving",
             "Continuously learning and adapting to user needs",
             "Built with privacy and security in mind"
         ],
-        system: "You are Eliza, a helpful and knowledgeable AI assistant.\nCore principles:\n- Be helpful, harmless, and honest\n- Provide accurate, well-researched information\n- Admit uncertainty when appropriate\n- Respect user privacy and boundaries\n- Adapt your communication style to the user's needs",
+        system: "You are ElizaOS, a helpful and knowledgeable AI assistant.\nCore principles:\n- Be helpful, harmless, and honest\n- Provide accurate, well-researched information\n- Admit uncertainty when appropriate\n- Respect user privacy and boundaries\n- Adapt your communication style to the user's needs",
         adjectives: ["helpful", "knowledgeable", "patient", "creative", "professional"],
         topics: ["programming", "web development", "artificial intelligence", "problem solving", "technology trends"],
         messageExamples: [
             [
                 { "name": "{{user}}", "content": { "text": "Hello!" } },
-                { "name": "Eliza", "content": { "text": "Hello! I'm Eliza, your AI assistant. How can I help you today?" } }
+                { "name": "ElizaOS", "content": { "text": "Hello! I'm ElizaOS, your AI assistant. How can I help you today?" } }
             ]
         ],
         postExamples: [
@@ -75,6 +79,18 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
     const [newSecretKey, setNewSecretKey] = useState('');
     const [newSecretValue, setNewSecretValue] = useState('');
 
+    const [pluginSearch, setPluginSearch] = useState('');
+    const { data: registryPlugins, isLoading: isLoadingPlugins } = useElizaPlugins();
+    // Default to existing plugins config or basic ones if registry fetch fails
+    const availablePlugins = registryPlugins || [];
+
+    // Get required secrets for selected plugins
+    const { requiredSecrets } = useRequiredSecrets(config.plugins || []);
+
+    const filteredPlugins = availablePlugins.filter(p =>
+        p.toLowerCase().includes(pluginSearch.toLowerCase())
+    );
+
     const logs = [
         `[${new Date().toISOString()}] INITIALIZING_NEURAL_LINK...`,
         `[${new Date().toISOString()}] SYNCING_DESIRED_STATE...`,
@@ -100,6 +116,26 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                     return;
                 }
             }
+
+            // Filter secrets to remove empty strings
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const filteredSecrets = Object.entries(finalConfig.settings?.secrets || {}).reduce((acc: any, [key, value]) => {
+                if (value && typeof value === 'string' && value.trim() !== '') {
+                    acc[key] = value;
+                }
+                return acc;
+            }, {});
+
+            finalConfig = {
+                ...finalConfig,
+                settings: {
+                    ...finalConfig.settings,
+                    secrets: filteredSecrets
+                },
+                // Ensure unique plugins, remove empty strings, and sort per ElizaOS recommended order
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                plugins: sortElizaPlugins([...new Set(finalConfig.plugins || [])].filter(Boolean) as string[]) as any
+            };
 
             await onSave(finalConfig, null, finalConfig.name);
             onClose();
@@ -273,9 +309,9 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                         <div className="flex gap-2 p-1 bg-white/5 rounded-2xl border border-white/5 self-start">
                             {[
                                 { id: 'profile', label: 'Identity', icon: <User size={14} /> },
+                                { id: 'plugins', label: 'Plugins', icon: <Zap size={14} /> },
                                 { id: 'behavior', label: 'Mindset', icon: <Sparkles size={14} /> },
                                 { id: 'style', label: 'Linguistics', icon: <MessageSquare size={14} /> },
-                                { id: 'plugins', label: 'Skills', icon: <Zap size={14} /> },
                                 { id: 'secrets', label: 'Secrets', icon: <Shield size={14} /> },
                                 { id: 'logs', label: 'Neural Logs', icon: <Code size={14} /> }
                             ].map(tab => (
@@ -373,38 +409,17 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                         </div>
                                     </div>
 
-                                    <section className="space-y-6">
-                                        <div className="flex items-center gap-2 mb-2">
-                                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                                                <Sparkles size={16} className="text-primary" />
-                                            </div>
-                                            <h3 className="font-black uppercase tracking-widest text-xs">Intelligence Core</h3>
-                                        </div>
-                                        <div className="grid grid-cols-1 gap-8">
-                                            <div className="group">
-                                                <label className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-primary">Model Architecture</label>
-                                                <select
-                                                    value={config.modelProvider || 'openai'}
-                                                    onChange={(e) => updateField('modelProvider', e.target.value)}
-                                                    className="w-full rounded-[1.25rem] border border-white/10 bg-white/5 px-5 py-4 focus:border-primary/50 outline-none transition-all font-bold group-hover:bg-white/[0.08] appearance-none"
-                                                >
-                                                    <option value="openai" className="bg-slate-950 text-white">OpenAI (GPT-4o Omniscience)</option>
-                                                    <option value="anthropic" className="bg-slate-950 text-white">Anthropic (Claude 3.5 Sonnet)</option>
-                                                    <option value="google" className="bg-slate-950 text-white">Google (Gemini 1.5 Ultra)</option>
-                                                    <option value="llama_local" className="bg-slate-950 text-white">Edge Compute (Llama 3 70B)</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </section>
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                         {renderArraySection('Bio Summary', 'bio', <User size={16} className="text-primary" />, 'Defining trait...', 'primary')}
                                         {renderArraySection('Knowledge Base', 'knowledge', <Database size={16} className="text-indigo-400" />, 'Information segment...', 'indigo-500')}
                                     </div>
+                                    {renderArraySection('Topics', 'topics', <Globe size={16} className="text-green-400" />, 'Subject matter...', 'green-400')}
                                 </div>
                             )}
 
                             {activeTab === 'behavior' && (
                                 <div className="space-y-12">
+                                    {/* System Command */}
                                     <section className="space-y-6">
                                         <div className="flex items-center gap-2 mb-2">
                                             <div className="size-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
@@ -422,15 +437,12 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                             />
                                         </div>
                                     </section>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                                        {renderArraySection('Adjectives', 'adjectives', <Sparkles size={16} className="text-amber-400" />, 'Personality trait...', 'amber-400')}
-                                        {renderArraySection('Topics', 'topics', <Globe size={16} className="text-green-400" />, 'Subject matter...', 'green-400')}
-                                    </div>
                                 </div>
                             )}
 
                             {activeTab === 'style' && (
                                 <div className="space-y-12">
+                                    {renderArraySection('Adjectives', 'adjectives', <Sparkles size={16} className="text-amber-400" />, 'Personality trait...', 'amber-400')}
                                     {renderArraySection('Global Style', 'style.all', <Settings size={16} className="text-slate-400" />, 'Universal writing rule...', 'slate-400')}
                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                                         {renderArraySection('Chat Stylings', 'style.chat', <MessageSquare size={16} className="text-blue-400" />, 'Conversational rule...', 'blue-400')}
@@ -441,34 +453,93 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
 
                             {activeTab === 'plugins' && (
                                 <div className="space-y-8">
+                                    <div className="space-y-6 mb-12">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                                                <Cpu size={16} className="text-primary" />
+                                            </div>
+                                            <h3 className="font-black uppercase tracking-widest text-xs">Core AI Intelligence</h3>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                            {CORE_AI_PROVIDERS.map(provider => {
+                                                const isActive = config.plugins?.includes(provider.id);
+                                                return (
+                                                    <div
+                                                        key={provider.id}
+                                                        onClick={() => togglePlugin(provider.id)}
+                                                        className={`p-6 rounded-[2rem] border transition-all cursor-pointer group relative overflow-hidden ${isActive
+                                                            ? 'bg-primary/10 border-primary/30'
+                                                            : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                                                    >
+                                                        <div className="relative z-10 flex flex-col gap-4">
+                                                            <div className={`size-12 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${isActive ? 'bg-primary text-white shadow-lg' : 'bg-white/5 text-muted-foreground'}`}>
+                                                                <Zap size={24} />
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-black text-sm uppercase tracking-widest mb-1">{provider.name}</h4>
+                                                                <p className="text-[10px] text-muted-foreground/60 leading-relaxed">{provider.desc}</p>
+                                                            </div>
+                                                            <div className={`h-1 w-full rounded-full bg-white/5 overflow-hidden`}>
+                                                                <div className={`h-full transition-all duration-500 ${isActive ? 'w-full bg-primary' : 'w-0'}`} />
+                                                            </div>
+                                                        </div>
+                                                        {isActive && (
+                                                            <div className="absolute top-4 right-4 text-primary">
+                                                                <Shield size={16} />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
                                     <div className="flex items-center gap-2 mb-4">
                                         <div className="size-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
                                             <Zap size={16} className="text-pink-400" />
                                         </div>
-                                        <h3 className="font-black uppercase tracking-widest text-xs">Skills</h3>
+                                        <h3 className="font-black uppercase tracking-widest text-xs">Neural Plugins</h3>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {availablePlugins.map(plugin => (
-                                            <div
-                                                key={plugin.id}
-                                                onClick={() => togglePlugin(plugin.id)}
-                                                className={`p-6 rounded-3xl border transition-all cursor-pointer group flex items-start gap-4 ${config.plugins?.includes(plugin.id)
-                                                    ? 'bg-primary/10 border-primary/30'
-                                                    : 'bg-white/5 border-white/5 hover:border-white/10'}`}
-                                            >
-                                                <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${config.plugins?.includes(plugin.id) ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'}`}>
-                                                    <Zap size={20} />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-black text-sm uppercase tracking-widest mb-1">{plugin.name}</h4>
-                                                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">{plugin.description}</p>
-                                                </div>
-                                                <div className={`size-6 rounded-full border flex items-center justify-center ml-auto ${config.plugins?.includes(plugin.id) ? 'bg-primary border-primary text-white' : 'border-white/10'}`}>
-                                                    {config.plugins?.includes(plugin.id) && <Plus size={14} className="rotate-45" />}
-                                                </div>
-                                            </div>
-                                        ))}
+                                    <div className="relative mb-6">
+                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/40" size={16} />
+                                        <input
+                                            value={pluginSearch}
+                                            onChange={(e) => setPluginSearch(e.target.value)}
+                                            placeholder="Search neural extensions..."
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-5 py-4 text-sm font-bold focus:border-pink-400/50 outline-none transition-all"
+                                        />
                                     </div>
+
+                                    {isLoadingPlugins ? (
+                                        <div className="flex items-center justify-center p-12">
+                                            <Loader2 className="animate-spin text-pink-400" size={32} />
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {filteredPlugins.map(plugin => (
+                                                <div
+                                                    key={plugin}
+                                                    onClick={() => togglePlugin(plugin)}
+                                                    className={`p-6 rounded-3xl border transition-all cursor-pointer group flex items-center gap-4 ${config.plugins?.includes(plugin)
+                                                        ? 'bg-primary/10 border-primary/30'
+                                                        : 'bg-white/5 border-white/5 hover:border-white/10'}`}
+                                                >
+                                                    <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110 ${config.plugins?.includes(plugin) ? 'bg-primary text-white' : 'bg-white/5 text-muted-foreground'}`}>
+                                                        <Zap size={20} />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-black text-xs uppercase tracking-widest mb-1 truncate" title={plugin}>{plugin}</h4>
+                                                        <p className="text-[10px] text-muted-foreground/60 truncate">
+                                                            {plugin.replace('@elizaos/', '')} module
+                                                        </p>
+                                                    </div>
+                                                    <div className={`size-6 rounded-full border flex items-center justify-center ml-auto shrink-0 ${config.plugins?.includes(plugin) ? 'bg-primary border-primary text-white' : 'border-white/10'}`}>
+                                                        {config.plugins?.includes(plugin) && <Plus size={14} className="rotate-45" />}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                             {activeTab === 'secrets' && (
@@ -483,86 +554,136 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                         </div>
                                     </div>
                                     <div className="space-y-6">
-                                        {Object.entries(config.settings?.secrets || {}).map(([key, value]) => (
-                                            <div key={key} className="group p-6 rounded-3xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all flex flex-col gap-4">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{key}</span>
+                                        <div className="space-y-6">
+                                            {/* Required Secrets Section */}
+                                            {requiredSecrets.length > 0 && (
+                                                <div className="space-y-4 mb-8">
+                                                    <div className="flex items-center gap-2 mb-2">
+                                                        <AlertTriangle size={14} className="text-amber-400" />
+                                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-amber-400">Required by Plugins</h4>
+                                                    </div>
+                                                    {requiredSecrets.map((secret) => {
+                                                        const value = config.settings?.secrets?.[secret.name];
+                                                        const hasValue = value && value.length > 0;
+
+                                                        return (
+                                                            <div key={secret.name} className="group p-6 rounded-3xl bg-amber-500/5 border border-amber-500/10 hover:border-amber-500/30 transition-all flex flex-col gap-4">
+                                                                <div className="flex justify-between items-center">
+                                                                    <div>
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">{secret.name}</span>
+                                                                        <span className="ml-2 text-[10px] text-muted-foreground/60">{secret.plugin.replace('@elizaos/', '')}</span>
+                                                                    </div>
+                                                                    {hasValue && <span className="text-[10px] text-emerald-400 font-bold flex items-center gap-1"><Shield size={10} /> Configured</span>}
+                                                                </div>
+                                                                <div>
+                                                                    <input
+                                                                        type="password"
+                                                                        value={value || ''}
+                                                                        onChange={(e) => {
+                                                                            const secrets = { ...config.settings?.secrets, [secret.name]: e.target.value };
+                                                                            updateField('settings', { ...config.settings, secrets });
+                                                                        }}
+                                                                        placeholder={`Enter ${secret.name}`}
+                                                                        className="w-full bg-transparent border-b border-white/5 py-1 font-mono text-sm focus:border-amber-400 outline-none transition-colors placeholder:text-muted-foreground/20"
+                                                                    />
+                                                                    {secret.description && (
+                                                                        <p className="mt-2 text-[10px] text-muted-foreground">{secret.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Shield size={14} className="text-indigo-400" />
+                                                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Custom Secrets</h4>
+                                            </div>
+
+                                            {Object.entries(config.settings?.secrets || {})
+                                                .filter(([key]) => !requiredSecrets.find(s => s.name === key))
+                                                .map(([key, value]) => (
+                                                    <div key={key} className="group p-6 rounded-3xl bg-white/5 border border-white/5 hover:border-indigo-500/30 transition-all flex flex-col gap-4">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">{key}</span>
+                                                            <button
+                                                                onClick={() => {
+                                                                    const secrets = { ...config.settings?.secrets };
+                                                                    delete secrets[key];
+                                                                    updateField('settings', { ...config.settings, secrets });
+                                                                }}
+                                                                className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                                                            >
+                                                                <Skull size={14} />
+                                                            </button>
+                                                        </div>
+                                                        <input
+                                                            type="password"
+                                                            value={value as string}
+                                                            onChange={(e) => {
+                                                                const secrets = { ...config.settings?.secrets, [key]: e.target.value };
+                                                                updateField('settings', { ...config.settings, secrets });
+                                                            }}
+                                                            className="bg-transparent border-b border-white/5 py-1 font-mono text-sm focus:border-indigo-400 outline-none transition-colors"
+                                                        />
+                                                    </div>
+                                                ))}
+
+                                            {isAddingSecret ? (
+                                                <div className="p-8 rounded-[2.5rem] bg-indigo-500/5 border border-indigo-500/20 animate-in fade-in zoom-in-95 duration-300">
+                                                    <div className="flex justify-between items-center mb-6">
+                                                        <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400">New Secret Matrix</h4>
+                                                        <button onClick={() => setIsAddingSecret(false)} className="text-muted-foreground/40 hover:text-white transition-colors">
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                                        <div className="space-y-2">
+                                                            <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Key</label>
+                                                            <input
+                                                                value={newSecretKey}
+                                                                onChange={(e) => setNewSecretKey(e.target.value)}
+                                                                placeholder="AGENT_KEY..."
+                                                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-bold text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Value</label>
+                                                            <input
+                                                                value={newSecretValue}
+                                                                onChange={(e) => setNewSecretValue(e.target.value)}
+                                                                type="password"
+                                                                placeholder="••••••••"
+                                                                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-mono text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                     <button
                                                         onClick={() => {
-                                                            const secrets = { ...config.settings?.secrets };
-                                                            delete secrets[key];
+                                                            if (!newSecretKey.trim()) return;
+                                                            const secrets = { ...config.settings?.secrets, [newSecretKey]: newSecretValue };
                                                             updateField('settings', { ...config.settings, secrets });
+                                                            setNewSecretKey('');
+                                                            setNewSecretValue('');
+                                                            setIsAddingSecret(false);
                                                         }}
-                                                        className="text-muted-foreground/40 hover:text-destructive transition-colors"
+                                                        disabled={!newSecretKey.trim()}
+                                                        className="w-full py-4 bg-indigo-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                                                     >
-                                                        <Skull size={14} />
+                                                        Secure Secret
                                                     </button>
                                                 </div>
-                                                <input
-                                                    type="password"
-                                                    value={value as string}
-                                                    onChange={(e) => {
-                                                        const secrets = { ...config.settings?.secrets, [key]: e.target.value };
-                                                        updateField('settings', { ...config.settings, secrets });
-                                                    }}
-                                                    className="bg-transparent border-b border-white/5 py-1 font-mono text-sm focus:border-indigo-400 outline-none transition-colors"
-                                                />
-                                            </div>
-                                        ))}
-
-                                        {isAddingSecret ? (
-                                            <div className="p-8 rounded-[2.5rem] bg-indigo-500/5 border border-indigo-500/20 animate-in fade-in zoom-in-95 duration-300">
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400">New Secret Matrix</h4>
-                                                    <button onClick={() => setIsAddingSecret(false)} className="text-muted-foreground/40 hover:text-white transition-colors">
-                                                        <X size={16} />
-                                                    </button>
-                                                </div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                                                    <div className="space-y-2">
-                                                        <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Key</label>
-                                                        <input
-                                                            value={newSecretKey}
-                                                            onChange={(e) => setNewSecretKey(e.target.value)}
-                                                            placeholder="AGENT_KEY..."
-                                                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-bold text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
-                                                        />
-                                                    </div>
-                                                    <div className="space-y-2">
-                                                        <label className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest ml-1">Value</label>
-                                                        <input
-                                                            value={newSecretValue}
-                                                            onChange={(e) => setNewSecretValue(e.target.value)}
-                                                            type="password"
-                                                            placeholder="••••••••"
-                                                            className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 font-mono text-sm focus:border-indigo-500 outline-none transition-all placeholder:text-muted-foreground/20"
-                                                        />
-                                                    </div>
-                                                </div>
+                                            ) : (
                                                 <button
-                                                    onClick={() => {
-                                                        if (!newSecretKey.trim()) return;
-                                                        const secrets = { ...config.settings?.secrets, [newSecretKey]: newSecretValue };
-                                                        updateField('settings', { ...config.settings, secrets });
-                                                        setNewSecretKey('');
-                                                        setNewSecretValue('');
-                                                        setIsAddingSecret(false);
-                                                    }}
-                                                    disabled={!newSecretKey.trim()}
-                                                    className="w-full py-4 bg-indigo-500 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
+                                                    onClick={() => setIsAddingSecret(true)}
+                                                    className="w-full py-5 rounded-2xl border border-dashed border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
                                                 >
-                                                    Secure Secret
+                                                    <Plus size={16} className="text-muted-foreground group-hover:text-indigo-400" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-indigo-400">Add New Secret Entry</span>
                                                 </button>
-                                            </div>
-                                        ) : (
-                                            <button
-                                                onClick={() => setIsAddingSecret(true)}
-                                                className="w-full py-5 rounded-2xl border border-dashed border-white/10 hover:border-indigo-500/40 hover:bg-indigo-500/5 transition-all flex items-center justify-center gap-2 group"
-                                            >
-                                                <Plus size={16} className="text-muted-foreground group-hover:text-indigo-400" />
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground group-hover:text-indigo-400">Add New Secret Entry</span>
-                                            </button>
-                                        )}
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -578,10 +699,27 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                         </div>
                                         <span className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest animate-pulse">Live Link Active</span>
                                     </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
+                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">CPU Load</span>
+                                            <span className="text-xl font-black text-white">{actual?.stats?.cpu || "1.5%"}</span>
+                                        </div>
+                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
+                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Memory Matrix</span>
+                                            <span className="text-xl font-black text-white">{actual?.stats?.memory?.split(' / ')[0] || "700MB"}</span>
+                                        </div>
+                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
+                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Inference Latency</span>
+                                            <span className="text-xl font-black text-white">45ms</span>
+                                        </div>
+                                    </div>
+
                                     <div className="bg-black/60 rounded-[2.5rem] p-8 font-mono text-xs leading-relaxed border border-white/5 shadow-inner">
                                         {logs.map((log, i) => (
                                             <div key={i} className="flex gap-4 mb-2 group">
                                                 <span className="text-muted-foreground/30 select-none">{i + 1}</span>
+                                                <span className="text-muted-foreground">Framework:</span> <span className="text-foreground">ElizaOS</span>
                                                 <span className={log.includes('HEARBEAT_OK') ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
                                                     {log}
                                                 </span>
@@ -590,20 +728,6 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                                         <div className="flex gap-4 animate-pulse">
                                             <span className="text-muted-foreground/30 select-none">{logs.length + 1}</span>
                                             <span className="text-primary font-black">_</span>
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
-                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">CPU Load</span>
-                                            <span className="text-xl font-black text-white">12.4%</span>
-                                        </div>
-                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
-                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Memory Matrix</span>
-                                            <span className="text-xl font-black text-white">240MB</span>
-                                        </div>
-                                        <div className="p-6 rounded-3xl bg-white/5 border border-white/5">
-                                            <span className="block text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-1">Inference Latency</span>
-                                            <span className="text-xl font-black text-white">45ms</span>
                                         </div>
                                     </div>
                                 </div>
@@ -664,6 +788,6 @@ export default function ElizaWizard({ agent, actual, onSave, onClose }: ElizaWiz
                     </div>
                 </footer>
             </div>
-        </div>
+        </div >
     );
 }

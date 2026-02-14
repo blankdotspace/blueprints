@@ -158,6 +158,10 @@ export interface AgentActualState {
     error_message?: string;
     effective_security_tier?: string; // Audit trail
     version?: string;
+    stats?: {
+        cpu: string;
+        memory: string;
+    };
 }
 
 // API Request/Response Schemas
@@ -223,9 +227,13 @@ export const OpenClawConfigSchema = z.object({
 
 export type OpenClawConfig = z.infer<typeof OpenClawConfigSchema>;
 
+
+export const SUPPORTED_FRAMEWORKS = ['elizaos', 'openclaw', 'picoclaw'] as const;
+export type SupportedFramework = typeof SUPPORTED_FRAMEWORKS[number];
+
 export const CreateAgentSchema = z.object({
     name: z.string().min(1).max(100),
-    framework: z.enum(['eliza', 'openclaw']).default('eliza'),
+    framework: z.enum(SUPPORTED_FRAMEWORKS).default('elizaos'),
     templateId: z.string().optional(),
     configTemplate: z.record(z.string(), z.any()).optional(),
     metadata: z.record(z.string(), z.any()).optional()
@@ -281,7 +289,7 @@ export interface ManagedKeyConfig {
     model_api?: string; // 'openai-completions' | 'openai-responses' | 'anthropic-messages'
     frameworks?: {
         openclaw?: Record<string, any>;
-        eliza?: Record<string, any>;
+        elizaos?: Record<string, any>;
         [key: string]: Record<string, any> | undefined;
     };
 }

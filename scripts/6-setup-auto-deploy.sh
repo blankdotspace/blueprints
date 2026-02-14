@@ -4,7 +4,7 @@
 # Creates a systemd service and timer to run the auto-deploy script periodically.
 
 SERVICE_NAME="blueprints-auto-deploy"
-SCRIPT_PATH="/opt/blueprints/scripts/auto-deploy.sh"
+SCRIPT_PATH="/opt/blueprints/scripts/6.1-auto-deploy.sh"
 
 echo "Running Auto-Deploy Setup..."
 

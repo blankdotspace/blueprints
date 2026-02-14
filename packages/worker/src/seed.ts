@@ -15,7 +15,7 @@ async function seed() {
     console.log('--- Seeding Local Runtime ---');
 
     const localRuntime = {
-        name: 'Local Eliza Runtime',
+        name: 'Local ElizaOS Runtime',
         eliza_api_url: 'http://localhost:3000/api', // Default ElizaOS port
         auth_token: 'secret-token' // this should match ElizaOS config
     };

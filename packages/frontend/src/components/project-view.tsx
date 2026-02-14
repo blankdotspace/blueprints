@@ -12,8 +12,9 @@ interface AgentWithStates extends Agent {
 }
 import { createClient } from '@/lib/supabase';
 import type { RealtimeChannel } from '@supabase/supabase-js';
-import ElizaWizard from '@/components/eliza-wizard';
+import ElizaOSWizard from './elizaos-wizard';
 import OpenClawWizard from '@/components/openclaw-wizard';
+import PicoClawWizard from '@/components/picoclaw-wizard';
 import ChatInterface from '@/components/chat-interface';
 import ConfirmationModal from '@/components/confirmation-modal';
 import { Runtime } from '@eliza-manager/shared';
@@ -92,7 +93,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [newAgentName, setNewAgentName] = useState('');
-    const [newAgentFramework, setNewAgentFramework] = useState<'eliza' | 'openclaw'>('eliza');
+    const [newAgentFramework, setNewAgentFramework] = useState<'elizaos' | 'openclaw' | 'picoclaw'>('elizaos');
     const [editingAgent, setEditingAgent] = useState<AgentWithStates | null>(null);
     const [chattingAgentId, setChattingAgentId] = useState<string | null>(null);
     const [lastCreatedAgentId, setLastCreatedAgentId] = useState<string | null>(null);
@@ -172,8 +173,9 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                 const isStopFulfilled = local.commandState === 'stop_requested' && actual.status === 'stopped';
                 const isAbortFulfilled = local.commandState === 'abort_requested' && (actual.status === 'running' || actual.status === 'stopped');
                 const isPurgeFulfilled = local.commandState === 'purge_requested' && actual.status === 'stopped' && !desired?.purge_at;
+                const isError = actual.status === 'error';
 
-                if (isStartFulfilled || isStopFulfilled || isAbortFulfilled || isPurgeFulfilled) {
+                if (isStartFulfilled || isStopFulfilled || isAbortFulfilled || isPurgeFulfilled || isError) {
                     updateLocalState(a.id, { commandState: 'idle', commandId: undefined });
                 }
             });
@@ -239,8 +241,9 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                         const isStartSuccess = local?.commandState === 'start_requested' && payload.new.status === 'running';
                         const isStopSuccess = local?.commandState === 'stop_requested' && payload.new.status === 'stopped';
                         const isAbortSuccess = local?.commandState === 'abort_requested' && (payload.new.status === 'running' || payload.new.status === 'stopped');
+                        const isError = payload.new.status === 'error';
 
-                        if (isStartSuccess || isStopSuccess || isAbortSuccess) {
+                        if (isStartSuccess || isStopSuccess || isAbortSuccess || isError) {
                             updateLocalState(a.id, { commandState: 'idle', commandId: undefined });
                         }
 
@@ -574,12 +577,25 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                         onSave={saveAgentConfig}
                         onClose={() => setEditingAgent(null)}
                     />
+                ) : editingAgent.framework === 'picoclaw' ? (
+                    <PicoClawWizard
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        agent={editingAgent as any}
+                        actual={(Array.isArray(editingAgent.agent_actual_state) ? editingAgent.agent_actual_state[0] : editingAgent.agent_actual_state) || { status: 'stopped' }}
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        onSave={saveAgentConfig as any}
+                        onClose={() => setEditingAgent(null)}
+                    />
                 ) : (
-                    <ElizaWizard
+                    <ElizaOSWizard
                         agent={editingAgent}
                         // Use robust fetching for actual state
                         actual={(Array.isArray(editingAgent.agent_actual_state) ? editingAgent.agent_actual_state[0] : editingAgent.agent_actual_state) || { status: 'stopped' }}
-                        onSave={saveAgentConfig}
+                        onSave={async (config, metadata, name) => {
+                            await saveAgentConfig(config, metadata, name);
+                            setEditingAgent(null);
+                            fetchProjectAndAgents(false);
+                        }}
                         onClose={() => setEditingAgent(null)}
                     />
                 )
@@ -676,12 +692,13 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                         </div>
                         <div className="group">
                             <label className="block text-sm font-black text-muted-foreground uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-primary">Intelligence Framework</label>
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-3 gap-4">
                                 <button
-                                    onClick={() => setNewAgentFramework('eliza')}
-                                    className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${newAgentFramework === 'eliza'
+                                    onClick={() => setNewAgentFramework('elizaos')}
+                                    className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${newAgentFramework === 'elizaos'
                                         ? 'border-primary bg-primary/10 text-primary'
-                                        : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                                        : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`
+                                    }
                                 >
                                     <Bot size={24} />
                                     <span className="text-[10px] font-black uppercase tracking-widest">ElizaOS</span>
@@ -694,6 +711,15 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
                                 >
                                     <Terminal size={24} />
                                     <span className="text-[10px] font-black uppercase tracking-widest">OpenClaw</span>
+                                </button>
+                                <button
+                                    onClick={() => setNewAgentFramework('picoclaw')}
+                                    className={`p-4 rounded-2xl border transition-all flex flex-col items-center gap-2 ${newAgentFramework === 'picoclaw'
+                                        ? 'border-purple-500 bg-purple-500/10 text-purple-500 border-opacity-50'
+                                        : 'border-white/10 bg-white/5 text-muted-foreground hover:bg-white/10'}`}
+                                >
+                                    <Cpu size={24} />
+                                    <span className="text-[10px] font-black uppercase tracking-widest">PicoClaw</span>
                                 </button>
                             </div>
                         </div>

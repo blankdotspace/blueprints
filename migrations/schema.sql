@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS public.agents (
     project_id UUID REFERENCES public.projects(id) ON DELETE CASCADE NOT NULL,
     name TEXT NOT NULL,
     version TEXT DEFAULT 'latest',
-    framework TEXT DEFAULT 'eliza', -- 'eliza', 'openclaw'
+    framework TEXT DEFAULT 'elizaos', -- 'elizaos', 'openclaw'
     template_id TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
