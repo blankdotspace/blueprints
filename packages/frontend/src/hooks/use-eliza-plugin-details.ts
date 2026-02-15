@@ -234,6 +234,7 @@ async function fetchPluginPackageJson(
             }
         } catch (error) {
             // Silently continue to next path
+            console.log(error)
         }
     }
 

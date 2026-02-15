@@ -96,9 +96,9 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
         }
     };
 
-    const updateConfig = <K extends keyof AgentConfig>(key: K, value: AgentConfig[K]) => {
-        setConfig(prev => ({ ...prev, [key]: value }));
-    };
+    // const updateConfig = <K extends keyof AgentConfig>(key: K, value: AgentConfig[K]) => {
+    //     setConfig(prev => ({ ...prev, [key]: value }));
+    // };
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -172,7 +172,7 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
                                     <label className="block text-sm font-medium text-zinc-400">Model ID</label>
                                     <input
                                         type="text"
-                                        value={(config.agents?.defaults as any)?.model || ''}
+                                        value={(config.agents?.defaults)?.model || ''}
                                         onChange={(e) => {
                                             const newModel = e.target.value;
                                             setConfig(prev => ({
@@ -180,7 +180,7 @@ export default function PicoClawWizard({ agent, actual, onSave, onClose }: PicoC
                                                 agents: {
                                                     ...prev.agents,
                                                     defaults: {
-                                                        ...(prev.agents?.defaults as any),
+                                                        ...(prev.agents?.defaults),
                                                         model: newModel
                                                     }
                                                 }

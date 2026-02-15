@@ -4,7 +4,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 
 // Load env from backend
-dotenv.config({ path: path.resolve(process.cwd(), 'packages/backend/.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'packages/worker/.env') });
 
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
