@@ -2,7 +2,11 @@
 
 import { useState, Suspense } from 'react';
 import { createClient } from '@/lib/supabase';
-import { Bot, Sparkles, ArrowRight, Github, X } from 'lucide-react';
+import {
+    Bot, Sparkles, ArrowRight,
+    // Github, 
+    X
+} from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useNotification } from '@/components/notification-provider';
@@ -149,7 +153,7 @@ function LoginPageContent() {
                     </div>
 
                     <div className="mt-6 flex flex-col gap-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* <div className="grid grid-cols-2 gap-3">
                             <button
                                 onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
                                 className="flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/[0.08] border border-white/5 rounded-2xl transition-all active:scale-95 group"
@@ -164,13 +168,17 @@ function LoginPageContent() {
                                 <Github size={18} className="opacity-60 group-hover:opacity-100 transition-opacity" />
                                 <span className="text-xs font-bold text-muted-foreground group-hover:text-white transition-colors">GitHub</span>
                             </button>
-                        </div>
+                        </div> */}
                         <button
                             onClick={() => setIsMagicLinkLogin(!isMagicLinkLogin)}
                             className="flex-1 flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/[0.08] border border-white/5 rounded-2xl transition-colors font-semibold text-sm">
                             <Sparkles size={18} className="text-amber-400" />
                             {isMagicLinkLogin ? 'Sign in with password instead' : 'Sign in with Magic Link'}
                         </button>
+
+                        <p className="text-muted-foreground font-medium text-lg max-w-[280px]">
+                            Beta Invite Only.
+                        </p>
                     </div>
 
                     <p className="mt-10 text-center text-sm font-medium text-muted-foreground">
