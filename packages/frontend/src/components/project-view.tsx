@@ -171,7 +171,7 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
         const sb = createClient();
 
         const channel = (sb
-            .channel('agent-status-updates') as RealtimeChannel) // Silencing Supabase internal type conflict
+            .channel('agent-status-updates') as unknown as RealtimeChannel) // Silencing Supabase internal type conflict
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
@@ -206,7 +206,8 @@ export default function ProjectView({ projectId, onDataChange, onUpgrade }: { pr
             .subscribe();
 
         return () => {
-            sb.removeChannel(channel);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            sb.removeChannel(channel as unknown as any);
         };
     }, [localStateRef, updateLocalState]); // Empty dependency array - subscription is stable
 
