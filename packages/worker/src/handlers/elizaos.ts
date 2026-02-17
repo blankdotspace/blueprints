@@ -392,3 +392,42 @@ async function doStopElizaOS(agentId: string, projectId?: string) {
         }
     }
 }
+
+export async function purgeElizaOSAgent(agentId: string, projectId?: string) {
+    try {
+        await stopElizaOSAgent(agentId, projectId);
+
+        const agentRoot = getAgentContainerPath(agentId, projectId);
+
+        if (projectId) {
+            // Check if any OTHER agents for this project still exist in DB
+            const { data: others } = await supabase
+                .from('agents')
+                .select('id')
+                .eq('project_id', projectId)
+                .neq('id', agentId);
+
+            if (!others || others.length === 0) {
+                logger.info(`Purging shared project directory for project ${projectId}: ${agentRoot}`);
+                if (fs.existsSync(agentRoot)) {
+                    fs.rmSync(agentRoot, { recursive: true, force: true });
+                }
+            } else {
+                // Just remove this agent's character file
+                const charPath = path.join(agentRoot, 'home', `${agentId}.json`);
+                if (fs.existsSync(charPath)) {
+                    logger.info(`Removing character file for purged agent ${agentId}: ${charPath}`);
+                    fs.rmSync(charPath, { force: true });
+                }
+            }
+        } else {
+            if (fs.existsSync(agentRoot)) {
+                logger.info(`Purging host directory for agent ${agentId}: ${agentRoot}`);
+                fs.rmSync(agentRoot, { recursive: true, force: true });
+            }
+        }
+    } catch (err: any) {
+        logger.error(`Failed to purge ElizaOS agent ${agentId}:`, err.message);
+        throw err;
+    }
+}

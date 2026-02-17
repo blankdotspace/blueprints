@@ -1,10 +1,11 @@
-import { startElizaOSAgent, stopElizaOSAgent, runElizaOSCommand } from './elizaos';
-import { startOpenClawAgent, stopOpenClawAgent, runTerminalCommand as runOpenClawCommand } from './openclaw';
-import { startPicoClawAgent, stopPicoClawAgent, runTerminalCommand as runPicoClawCommand } from './picoclaw';
+import { startElizaOSAgent, stopElizaOSAgent, runElizaOSCommand, purgeElizaOSAgent } from './elizaos';
+import { startOpenClawAgent, stopOpenClawAgent, runTerminalCommand as runOpenClawCommand, purgeOpenClawAgent } from './openclaw';
+import { startPicoClawAgent, stopPicoClawAgent, runTerminalCommand as runPicoClawCommand, purgePicoClawAgent } from './picoclaw';
 
 export interface AgentHandler {
     start: (agentId: string, config: any, metadata: any, forceRestart?: boolean, projectId?: string) => Promise<void>;
     stop: (agentId: string, projectId?: string) => Promise<void>;
+    purge: (agentId: string, projectId?: string) => Promise<void>;
     runCommand?: (agentId: string, command: string, projectId?: string) => Promise<string>;
 }
 
@@ -14,6 +15,7 @@ export const FRAMEWORK_HANDLERS: Record<string, AgentHandler> = {
             return startElizaOSAgent(id, config, metadata, force, projectId);
         },
         stop: stopElizaOSAgent,
+        purge: purgeElizaOSAgent,
         runCommand: runElizaOSCommand
     },
     'openclaw': {
@@ -21,6 +23,7 @@ export const FRAMEWORK_HANDLERS: Record<string, AgentHandler> = {
             return startOpenClawAgent(id, config, metadata, force);
         },
         stop: stopOpenClawAgent,
+        purge: purgeOpenClawAgent,
         runCommand: runOpenClawCommand
     },
     'picoclaw': {
@@ -28,6 +31,7 @@ export const FRAMEWORK_HANDLERS: Record<string, AgentHandler> = {
             return startPicoClawAgent(id, config, metadata, force);
         },
         stop: stopPicoClawAgent,
+        purge: purgePicoClawAgent,
         runCommand: runPicoClawCommand
     }
 };

@@ -344,3 +344,24 @@ export async function stopOpenClawAgent(agentId: string) {
         }
     }
 }
+
+export async function purgeOpenClawAgent(agentId: string) {
+    try {
+        await stopOpenClawAgent(agentId);
+
+        const agentsDataContainerPath = process.env.AGENTS_DATA_CONTAINER_PATH || './workspaces';
+        const absoluteContainerPath = path.isAbsolute(agentsDataContainerPath)
+            ? agentsDataContainerPath
+            : path.resolve(process.cwd(), agentsDataContainerPath);
+
+        const agentRootPath = path.join(absoluteContainerPath, agentId);
+
+        if (fs.existsSync(agentRootPath)) {
+            logger.info(`Purging host directory for agent ${agentId}: ${agentRootPath}`);
+            fs.rmSync(agentRootPath, { recursive: true, force: true });
+        }
+    } catch (err: any) {
+        logger.error(`Failed to purge OpenClaw agent ${agentId}:`, err.message);
+        throw err;
+    }
+}

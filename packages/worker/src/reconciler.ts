@@ -86,7 +86,7 @@ export async function reconcile() {
                 logger.info(`[TERMINATE] Executing final deletion for agent ${agent.id}...`);
                 try {
                     const handler = getHandler(agent.framework);
-                    await handler.stop(agent.id, agent.project_id);
+                    await handler.purge(agent.id, agent.project_id);
                     // ONLY delete from DB if cleanup succeeded
                     await supabase.from('agents').delete().eq('id', agent.id);
                     logger.info(`[TERMINATE] Agent ${agent.id} successfully purged from both Docker and DB.`);

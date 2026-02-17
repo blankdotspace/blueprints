@@ -278,3 +278,25 @@ export async function runTerminalCommand(agentId: string, command: string): Prom
         return `Error: ${err.message}`;
     }
 }
+
+export async function purgePicoClawAgent(agentId: string) {
+    try {
+        await stopPicoClawAgent(agentId);
+
+        const agentsDataContainerPath = process.env.AGENTS_DATA_CONTAINER_PATH || './workspaces';
+        const absoluteContainerPath = path.isAbsolute(agentsDataContainerPath)
+            ? agentsDataContainerPath
+            : path.resolve(process.cwd(), agentsDataContainerPath);
+
+        const agentRootPath = path.join(absoluteContainerPath, agentId);
+
+        const fsSync = require('fs');
+        if (fsSync.existsSync(agentRootPath)) {
+            logger.info(`Purging host directory for PicoClaw agent ${agentId}: ${agentRootPath}`);
+            fsSync.rmSync(agentRootPath, { recursive: true, force: true });
+        }
+    } catch (err: any) {
+        logger.error(`Failed to purge PicoClaw agent ${agentId}:`, err.message);
+        throw err;
+    }
+}
