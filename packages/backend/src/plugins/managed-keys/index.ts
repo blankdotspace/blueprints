@@ -57,6 +57,7 @@ const buildAgentConfig = (selectedKey: any, existingConfig: any, framework: stri
                         ...(existingConfig.agents?.defaults?.models || {}),
                         [model]: {}
                     },
+                    workspace: "/agent-home/.openclaw/workspace"
                 },
             },
             ...frameworkOverrides,
