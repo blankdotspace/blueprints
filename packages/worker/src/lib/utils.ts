@@ -53,8 +53,12 @@ export function sanitizeConfig(config: any): any {
         Object.keys(clean.auth.profiles).forEach(key => {
             const profile = clean.auth.profiles[key];
             if (profile && typeof profile === 'object') {
-                // OpenClaw validation fails if 'token' is present in an auth profile
-                delete (profile as any).token;
+                // OpenClaw validation used to fail if 'token' was present.
+                // However, we now need it for backwards compatibility if mode is token or api_key.
+                // We only delete it if it's explicitly not needed.
+                if (profile.mode === 'oauth') {
+                    delete (profile as any).token;
+                }
             }
         });
     }

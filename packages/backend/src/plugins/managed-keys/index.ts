@@ -27,7 +27,11 @@ const buildAgentConfig = (selectedKey: any, existingConfig: any, framework: stri
                 ...(existingConfig.auth || {}),
                 profiles: {
                     ...(existingConfig.auth?.profiles || {}),
-                    'default': { provider: providerName, mode: 'api_key' },
+                    'default': {
+                        provider: providerName,
+                        mode: 'api_key',
+                        token: selectedKey.encrypted_key // Backwards compatibility for some versions
+                    },
                 },
             },
             models: {
@@ -335,6 +339,18 @@ const managedKeysPlugin: FastifyPluginAsync = async (fastify) => {
             .select('tier')
             .eq('id', userId)
             .single();
+
+        // 1.1 Verify agent exists and belongs to user
+        const { data: agent, error: agentError } = await fastify.supabase
+            .from('agents')
+            .select('id, projects!inner(user_id)')
+            .eq('id', agent_id)
+            .eq('projects.user_id', userId)
+            .single();
+
+        if (agentError || !agent) {
+            throw fastify.httpErrors.notFound('Agent not found or access denied');
+        }
 
         const userTier = (profile?.tier as UserTier) || UserTier.FREE;
         const tierConfig = LEASE_TIER_CONFIG[userTier] || LEASE_TIER_CONFIG[UserTier.FREE];
