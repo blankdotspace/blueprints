@@ -1,26 +1,42 @@
 #!/usr/bin/env bun
 /**
- * Script: check-openrouter-keys.ts
+ * Script: sync-openrouter-keys.ts
  * Description: Syncs OpenRouter key usage and limits to the Supabase database.
+ * Loads environment variables from packages/worker/.env automatically.
  */
 
 import { OpenRouter } from '@openrouter/sdk';
 import { createClient } from '@supabase/supabase-js';
+import { config } from 'dotenv';
+import { join } from 'path';
+
+// Load env from worker package
+config({ path: join(process.cwd(), 'packages/worker/.env') });
 
 const MANAGEMENT_KEY = process.env.OPENROUTER_MANAGEMENT_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!MANAGEMENT_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    console.error('Missing required environment variables: OPENROUTER_MANAGEMENT_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+    console.warn('⚠️ Missing env in packages/worker/.env, trying root .env...');
+    config(); // fallback to root .env
+}
+
+const FINAL_MANAGEMENT_KEY = process.env.OPENROUTER_MANAGEMENT_KEY;
+const FINAL_SUPABASE_URL = process.env.SUPABASE_URL;
+const FINAL_SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!FINAL_MANAGEMENT_KEY || !FINAL_SUPABASE_URL || !FINAL_SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('❌ Missing required environment variables: OPENROUTER_MANAGEMENT_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY');
+    console.error('Please ensure they are set in packages/worker/.env or your environment.');
     process.exit(1);
 }
 
 const openRouter = new OpenRouter({
-    apiKey: MANAGEMENT_KEY,
+    apiKey: FINAL_MANAGEMENT_KEY,
 });
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = createClient(FINAL_SUPABASE_URL, FINAL_SUPABASE_SERVICE_ROLE_KEY);
 
 async function main() {
     try {
