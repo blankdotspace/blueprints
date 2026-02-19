@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { LeaseStatus } from '@eliza-manager/shared';
+import { OpenRouter } from '@openrouter/sdk';
 
 let supabase: SupabaseClient;
 
@@ -14,8 +15,10 @@ function getSupabase(): SupabaseClient {
 }
 
 const CRON_INTERVAL_MS = 60 * 1000; // 60 seconds
+const SYNC_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 
-let intervalId: ReturnType<typeof setInterval> | null = null;
+let leaseIntervalId: ReturnType<typeof setInterval> | null = null;
+let syncIntervalId: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Expire stale leases and stop their attached agents.
@@ -87,25 +90,91 @@ async function expireLeases(): Promise<void> {
 }
 
 /**
+ * Synchronize OpenRouter key usage and limits.
+ */
+async function syncOpenRouterUsage(): Promise<void> {
+    const MANAGEMENT_KEY = process.env.OPENROUTER_MANAGEMENT_KEY;
+    if (!MANAGEMENT_KEY) {
+        console.warn('[lease-cron] OPENROUTER_MANAGEMENT_KEY not set, skipping usage sync.');
+        return;
+    }
+
+    const sb = getSupabase();
+    const openRouter = new OpenRouter({ apiKey: MANAGEMENT_KEY });
+
+    try {
+        console.log('[lease-cron] Starting OpenRouter usage sync...');
+        const orKeys = await openRouter.apiKeys.list();
+
+        const { data: dbKeys, error: dbError } = await sb
+            .from('managed_provider_keys')
+            .select('id, label')
+            .eq('provider', 'openrouter');
+
+        if (dbError) throw dbError;
+
+        for (const dbKey of dbKeys) {
+            const orKey = orKeys.data.find(k => k.name === dbKey.label);
+            if (!orKey) continue;
+
+            // 1. Update Limits
+            const limit = orKey.limit || null;
+            await sb
+                .from('managed_provider_keys')
+                .update({ monthly_limit_usd: limit })
+                .eq('id', dbKey.id);
+
+            // 2. Update Usage for Active Lease
+            const usage = (orKey as any).usage || 0;
+            const { data: activeLease } = await sb
+                .from('key_leases')
+                .select('id')
+                .eq('managed_key_id', dbKey.id)
+                .eq('status', LeaseStatus.ACTIVE)
+                .single();
+
+            if (activeLease) {
+                await sb
+                    .from('key_leases')
+                    .update({ usage_usd: usage })
+                    .eq('id', activeLease.id);
+            }
+        }
+        console.log('[lease-cron] OpenRouter usage sync completed.');
+    } catch (err) {
+        console.error('[lease-cron] Error syncing OpenRouter usage:', err);
+    }
+}
+
+/**
  * Start the lease expiration cron job.
  */
 export function startLeaseCron(): void {
-    if (intervalId) return; // Already running
+    if (leaseIntervalId) return; // Already running
 
     console.log('[lease-cron] Starting lease expiration cron (every 60s)');
-    intervalId = setInterval(expireLeases, CRON_INTERVAL_MS);
+    leaseIntervalId = setInterval(expireLeases, CRON_INTERVAL_MS);
+
+    console.log('[lease-cron] Starting OpenRouter usage sync cron (every 1h)');
+    syncIntervalId = setInterval(syncOpenRouterUsage, SYNC_INTERVAL_MS);
 
     // Run once immediately
     expireLeases();
+    syncOpenRouterUsage();
 }
 
 /**
  * Stop the lease expiration cron job.
  */
 export function stopLeaseCron(): void {
-    if (intervalId) {
-        clearInterval(intervalId);
-        intervalId = null;
+    if (leaseIntervalId) {
+        clearInterval(leaseIntervalId);
+        leaseIntervalId = null;
         console.log('[lease-cron] Stopped lease expiration cron');
+    }
+    if (syncIntervalId) {
+        clearInterval(syncIntervalId);
+        syncIntervalId = null;
+        console.log('[lease-cron] Stopped OpenRouter sync cron');
     }
 }

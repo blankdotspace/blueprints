@@ -67,6 +67,33 @@
         "typescript-eslint": "^8.54.0",
       },
     },
+    "packages/openclaw-frontend": {
+      "name": "@eliza-manager/openclaw-frontend",
+      "version": "0.0.0",
+      "dependencies": {
+        "@eliza-manager/shared": "workspace:*",
+        "@supabase/ssr": "^0.5.2",
+        "@supabase/supabase-js": "^2.93.2",
+        "@tanstack/react-query": "^5.64.2",
+        "clsx": "^2.1.1",
+        "lucide-react": "^0.474.0",
+        "next": "^15.1.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "tailwind-merge": "^3.0.1",
+      },
+      "devDependencies": {
+        "@types/node": "^24.10.1",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "autoprefixer": "^10.4.20",
+        "eslint": "^9.39.1",
+        "eslint-config-next": "^15.1.0",
+        "postcss": "^8.5.1",
+        "tailwindcss": "^3.4.17",
+        "typescript": "~5.9.3",
+      },
+    },
     "packages/shared": {
       "name": "@eliza-manager/shared",
       "version": "0.0.0",
@@ -83,6 +110,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@eliza-manager/shared": "workspace:*",
+        "@openrouter/sdk": "^0.8.0",
         "@supabase/supabase-js": "^2.93.2",
         "axios": "^1.7.9",
         "dockerode": "^3.3.5",
@@ -130,6 +158,8 @@
     "@eliza-manager/backend": ["@eliza-manager/backend@workspace:packages/backend"],
 
     "@eliza-manager/frontend": ["@eliza-manager/frontend@workspace:packages/frontend"],
+
+    "@eliza-manager/openclaw-frontend": ["@eliza-manager/openclaw-frontend@workspace:packages/openclaw-frontend"],
 
     "@eliza-manager/shared": ["@eliza-manager/shared@workspace:packages/shared"],
 
@@ -394,6 +424,8 @@
     "@nodelib/fs.walk": ["@nodelib/fs.walk@1.2.8", "", { "dependencies": { "@nodelib/fs.scandir": "2.1.5", "fastq": "^1.6.0" } }, "sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg=="],
 
     "@nolyfill/is-core-module": ["@nolyfill/is-core-module@1.0.39", "", {}, "sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA=="],
+
+    "@openrouter/sdk": ["@openrouter/sdk@0.8.0", "", { "dependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-hmCY5CE/adBmwZmrwuSx7Pw5UngcyuA9FvgpouyWEX8m283omLD1BqJlYYkLdVoUdI8iGNFHKezH2CeJqsVymw=="],
 
     "@opentelemetry/api": ["@opentelemetry/api@1.9.0", "", {}, "sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg=="],
 
