@@ -153,16 +153,16 @@ function SettingsContent() {
     useEffect(() => {
         if (agent) {
             const desired = Array.isArray(agent.agent_desired_state) ? agent.agent_desired_state[0] : agent.agent_desired_state;
-            const metadata = desired?.metadata || {};
+            const metadata = (desired as any)?.metadata || {};
             setSecurityLevel(metadata.security_level ?? SecurityLevel.STANDARD);
 
             // ... existing login
-            const config = desired?.config || {};
+            const config = (desired as any)?.config || {};
             setAgentName(agent.name || '');
             setSystemPrompt((config.agents?.defaults?.system_prompt as string) || '');
             setJsonContent(JSON.stringify(config, null, 2));
 
-            const providers = config.models?.providers || {};
+            const providers = (config as any).models?.providers || {};
             const hasKey = !!(providers.openrouter?.apiKey || providers.anthropic?.apiKey || providers.openai?.apiKey);
             setApiKeyStatus(hasKey ? 'configured' : 'missing');
         }
