@@ -7,6 +7,50 @@ import { getHandler } from './handlers';
 
 const isDocker = fs.existsSync('/.dockerenv');
 
+/**
+ * Strip ANSI/VT100 escape codes from terminal output before storing.
+ * Handles fragmented sequences produced by TTY mode (each char may be on its own line).
+ */
+function stripAnsi(str: string): string {
+    // First, collapse the fragmented ESC sequences written as:
+    //   \u001b\r\n[\r\n3\r\n5\r\nm\r\n  →  \u001b[35m
+    // Strategy: remove all \r and \n that appear between ESC and its terminator letter
+    // We do this iteratively: join ESC...m sequences that are broken across lines
+    let s = str
+        // Normalize line endings first
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '\n');
+
+    // Rejoin fragmented ESC sequences: ESC followed by newlines, digits, semicolons, [
+    // e.g. "\u001b\n[\n3\n5\nm" → "\u001b[35m"
+    // Repeat until stable (handles deeply broken sequences)
+    for (let i = 0; i < 5; i++) {
+        s = s.replace(/\x1b\n?\[([\d;\n]*)([A-Za-z])/g, (_m, params, cmd) =>
+            `\x1b[${params.replace(/\n/g, '')}${cmd}`
+        );
+    }
+
+    return s
+        // ESC [ ... letter  (CSI sequences: colors, cursor, etc.)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        // ESC ] ... ST  (OSC sequences)
+        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+        // ESC ( or ) ... (character set designation)
+        .replace(/\x1b[()][A-Za-z0-9]/g, '')
+        // Lone ESC + single char
+        .replace(/\x1b./g, '')
+        // Remaining lone ESC
+        .replace(/\x1b/g, '')
+        // Backspace sequences
+        .replace(/.\x08/g, '')
+        // Remove spinner artifact lines (lone spinner chars like ◒◐◓◑ on their own line)
+        .split('\n')
+        .filter(line => !/^[◒◐◓◑◇]$/.test(line.trim()))
+        .join('\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
+
 export async function handleUserMessage(payload: any) {
     const { id, agent_id, content: rawContent, user_id } = payload;
     const content = (rawContent || '').trim();
@@ -65,7 +109,7 @@ Examples:
                 agent_id,
                 user_id,
                 sender: 'agent',
-                content: `$ ${command}\n\n${output}`
+                content: `$ ${command}\n\n${stripAnsi(output)}`
             }]);
 
             return;
