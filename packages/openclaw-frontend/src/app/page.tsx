@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { ChatScreen } from '@/components/chat-screen';
 import { TerminalScreen } from '@/components/terminal-screen';
 import { BottomNav } from '@/components/bottom-nav';
-import { Terminal, Loader2, AlertTriangle, Cpu } from 'lucide-react';
+import { Terminal, Loader2, AlertTriangle } from 'lucide-react';
 
 function HomeContent() {
     const { user, loading: authLoading } = useAuth();
@@ -105,7 +105,7 @@ function HomeContent() {
                         </div>
                         <h2 className="text-xl font-black uppercase tracking-tighter mb-2 italic">Waiting for Agent</h2>
                         <p className="text-sm text-muted-foreground max-w-[240px] mb-8 font-medium">
-                            Your agent is currently {agent.agent_actual_state?.status || 'stopped'}. Please ensure it's started in settings.
+                            Your agent is currently {agent.agent_actual_state?.status || 'stopped'}. Please ensure it&apos;s started in settings.
                         </p>
                         <Link
                             href="/settings"

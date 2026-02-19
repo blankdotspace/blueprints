@@ -59,7 +59,7 @@ export function AgentProvider({ children }: { children: React.ReactNode }) {
         setError(null);
 
         try {
-            let agentId = user.user_metadata?.openclaw_agent_id as string | undefined;
+            const agentId = user.user_metadata?.openclaw_agent_id as string | undefined;
 
             if (agentId) {
                 try {
