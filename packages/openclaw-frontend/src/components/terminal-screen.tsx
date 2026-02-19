@@ -18,6 +18,58 @@ interface TerminalScreenProps {
     agent: Agent;
 }
 
+/**
+ * Strip ANSI escape codes and common terminal control sequences from output.
+ * Handles color codes, cursor movement, bracketed paste, etc.
+ */
+function stripAnsi(str: string): string {
+    return str
+        // ESC [ ... m  (CSI sequences: colors, cursor, etc.)
+        .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+        // ESC ] ... ST  (OSC sequences)
+        .replace(/\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)/g, '')
+        // ESC ( or ) ... (character set designation)
+        .replace(/\x1b[()][A-Za-z0-9]/g, '')
+        // Lone ESC + single char
+        .replace(/\x1b[^[\]()]/g, '')
+        // Remaining lone ESC
+        .replace(/\x1b/g, '')
+        // Carriage returns (keep newlines)
+        .replace(/\r\n/g, '\n')
+        .replace(/\r/g, '')
+        // Backspace sequences (e.g. "X\bY" → "Y")
+        .replace(/.\x08/g, '')
+        .trim();
+}
+
+/**
+ * Resolve user input to the actual command string to send.
+ * - `openclaw <args>` → `/terminal node /app/openclaw.mjs <args>`
+ * - Otherwise → `/terminal <input>` (normal terminal)
+ */
+function resolveCommand(text: string): string {
+    // Already a full /terminal … prefix — pass through
+    if (text.startsWith('/terminal')) return text;
+
+    // "openclaw …" alias
+    if (text.toLowerCase().startsWith('openclaw')) {
+        const args = text.slice('openclaw'.length).trim();
+        return `/terminal node /app/openclaw.mjs${args ? ' ' + args : ''}`;
+    }
+
+    return `/terminal ${text}`;
+}
+
+/**
+ * Given the raw content stored in agent_conversations, decide whether this
+ * message belongs to the terminal (vs chat).
+ */
+function isTerminalRow(sender: string, content: string): boolean {
+    if (sender === 'user' && content.startsWith('/')) return true;
+    if (sender === 'agent' && /^\$ /.test(content)) return true;
+    return false;
+}
+
 export function TerminalScreen({ agent }: TerminalScreenProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [commandHistory, setCommandHistory] = useState<string[]>([]);
@@ -43,29 +95,31 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
             try {
                 const data = await apiFetch<any[]>(`/agents/${agent.id}/chat`);
                 if (data) {
-                    const history: Message[] = data.reverse().map((msg: any) => ({
+                    // Keep only terminal messages (user /commands and agent $ output)
+                    const terminalRows = data.filter((msg: any) => isTerminalRow(msg.sender, msg.content));
+
+                    const history: Message[] = terminalRows.map((msg: any) => ({
                         id: msg.id,
-                        role: (msg.sender === 'user' ? 'user' : 'assistant') as "user" | "assistant",
-                        content: msg.content,
+                        role: (msg.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+                        content: msg.sender === 'agent' ? stripAnsi(msg.content) : msg.content,
                         timestamp: new Date(msg.created_at),
-                        isCommand: msg.content.startsWith('/terminal')
+                        isCommand: msg.sender === 'user',
                     }));
 
-                    // Extract command text for the history state
-                    const userCommands = history
-                        .filter(m => m.role === 'user' && m.content.startsWith('/terminal '))
-                        .map(m => m.content.replace('/terminal ', ''));
-
+                    // Build command history from user messages for ↑↓ recall
+                    const userCommands = terminalRows
+                        .filter((m: any) => m.sender === 'user' && m.content.startsWith('/terminal '))
+                        .map((m: any) => m.content.replace('/terminal ', ''));
                     setCommandHistory(userCommands);
 
-                    // Clean up /terminal prefix for display if it's a command
-                    const cleanedHistory = history.map((msg: Message) => ({
+                    // Clean /terminal prefix for display
+                    const displayHistory = history.map((msg: Message) => ({
                         ...msg,
                         content: msg.role === 'user' && msg.content.startsWith('/terminal ')
                             ? msg.content.replace('/terminal ', '')
-                            : msg.content
+                            : msg.content,
                     }));
-                    setMessages(cleanedHistory);
+                    setMessages(displayHistory);
                 }
             } catch (err) {
                 console.error('Failed to fetch terminal history:', err);
@@ -87,26 +141,23 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
                 },
                 (payload: { new: any }) => {
                     const newMsg = payload.new;
-                    const role = newMsg.sender === 'user' ? 'user' : 'assistant';
 
-                    // We might have already optimistically added the user message
-                    // So we could dedup, but for now simple append is safer for the "response" part.
-                    // Actually, let's just ignore own user messages arriving via socket to avoid easy duplication
-                    // OR specifically handle them.
-                    // For the "response", we definitely want it.
+                    // Only handle terminal messages here
+                    if (!isTerminalRow(newMsg.sender, newMsg.content)) return;
 
-                    if (role === 'assistant') {
+                    if (newMsg.sender === 'agent') {
                         setMessages((prev) => [
                             ...prev,
                             {
                                 id: newMsg.id,
                                 role: 'assistant',
-                                content: newMsg.content,
+                                content: stripAnsi(newMsg.content),
                                 timestamp: new Date(newMsg.created_at),
-                                isCommand: false
+                                isCommand: false,
                             }
                         ]);
                     }
+                    // User messages arrive optimistically; skip to avoid duplication
                 }
             )
             .subscribe();
@@ -120,27 +171,28 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
         const text = input.trim();
         if (!text || sending) return;
 
-        // Add to history
+        // Resolve alias and build the wire command
+        const commandContent = resolveCommand(text);
+
+        // The display label is always just what the user typed
+        const displayText = text;
+
+        // Add to ↑↓ history
         setCommandHistory(prev => {
-            const newHistory = [...prev, text];
-            if (newHistory.length > 100) return newHistory.slice(newHistory.length - 100);
-            return newHistory;
+            const next = [...prev, displayText];
+            return next.length > 100 ? next.slice(next.length - 100) : next;
         });
         setHistoryIndex(-1);
         setTempInput('');
 
-        // Auto-prefix with /terminal if not present
-        const commandContent = text.startsWith('/terminal') ? text : `/terminal ${text}`;
-
-        // Optimistic update
+        // Optimistic update — show the user's typed text immediately
         const userMessage: Message = {
             id: crypto.randomUUID(),
             role: 'user',
-            content: text, // Show what user typed (without prefix if they didn't type it)
+            content: displayText,
             timestamp: new Date(),
-            isCommand: true
+            isCommand: true,
         };
-
         setMessages(prev => [...prev, userMessage]);
         setInput('');
         setSending(true);
@@ -150,7 +202,7 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
                 method: 'POST',
                 body: JSON.stringify({ content: commandContent }),
             });
-            // Output will arrive via subscription
+            // Output arrives via subscription
         } catch {
             const errorMessage: Message = {
                 id: crypto.randomUUID(),
@@ -172,12 +224,9 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
             if (commandHistory.length === 0) return;
-
             const newIndex = historyIndex + 1;
             if (newIndex < commandHistory.length) {
-                if (historyIndex === -1) {
-                    setTempInput(input);
-                }
+                if (historyIndex === -1) setTempInput(input);
                 setHistoryIndex(newIndex);
                 setInput(commandHistory[commandHistory.length - 1 - newIndex]);
             }
@@ -229,7 +278,8 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
                         <p>Connected to container <span className="text-blue-400">{agent.id.slice(0, 8)}</span></p>
                         <br />
                         <p>Type commands to execute in the agent&apos;s environment.</p>
-                        <p>Example: <span className="text-white/60">ls -la</span>, <span className="text-white/60">node -v</span></p>
+                        <p>Examples: <span className="text-white/60">ls -la</span>, <span className="text-white/60">node -v</span></p>
+                        <p className="mt-2">Shortcut: <span className="text-white/60">openclaw status</span> → runs <span className="text-white/50">node /app/openclaw.mjs status</span></p>
                     </div>
                 ) : (
                     messages.map((msg) => (
@@ -262,7 +312,7 @@ export function TerminalScreen({ agent }: TerminalScreenProps) {
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Type a command..."
+                        placeholder="Type a command... (openclaw status, ls, node -v)"
                         className="flex-1 bg-transparent border-none outline-none text-white placeholder:text-white/20"
                         autoComplete="off"
                         autoCapitalize="none"

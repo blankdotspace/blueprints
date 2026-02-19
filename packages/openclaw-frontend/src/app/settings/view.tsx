@@ -6,7 +6,7 @@ import { useAgent } from '@/hooks/use-agent';
 import { useNotification } from '@/components/notification-provider';
 import { SecurityLevel, Profile } from '@eliza-manager/shared';
 import { BottomNav } from '@/components/bottom-nav';
-import { apiPatch } from '@/lib/api';
+import { apiPatch, apiFetch } from '@/lib/api';
 import { createClient } from '@/lib/supabase';
 import {
     Settings as SettingsIcon,
@@ -85,6 +85,12 @@ function SettingsContent() {
     const [jsonContent, setJsonContent] = useState('');
     const [profile, setProfile] = useState<Profile | null>(null);
     const [securityLevel, setSecurityLevel] = useState<SecurityLevel>(SecurityLevel.STANDARD);
+    const [leaseBilling, setLeaseBilling] = useState<{
+        usageUsd: number;
+        limitUsd: number | null;
+        expiresAt: string | null;
+        hasLease: boolean;
+    } | null>(null);
 
     const supabase = createClient();
 
@@ -149,6 +155,32 @@ function SettingsContent() {
         };
         fetchProfile();
     }, [user, supabase]);
+
+    // Fetch lease billing info whenever billing tab opens
+    useEffect(() => {
+        if (activeTab !== 'billing') return;
+        const fetchBilling = async () => {
+            try {
+                const leases = await apiFetch<any[]>('/managed-keys/lease');
+                const active = leases?.find((l: any) => l.status === 'active');
+                if (active) {
+                    const mk = active.managed_provider_keys as any;
+                    const limitUsd: number | null = mk?.monthly_limit_usd ?? mk?.daily_limit_usd ?? null;
+                    setLeaseBilling({
+                        usageUsd: Number(active.usage_usd) || 0,
+                        limitUsd: limitUsd !== null ? Number(limitUsd) : null,
+                        expiresAt: active.expires_at,
+                        hasLease: true,
+                    });
+                } else {
+                    setLeaseBilling({ usageUsd: 0, limitUsd: null, expiresAt: null, hasLease: false });
+                }
+            } catch {
+                setLeaseBilling({ usageUsd: 0, limitUsd: null, expiresAt: null, hasLease: false });
+            }
+        };
+        fetchBilling();
+    }, [activeTab]);
 
     useEffect(() => {
         if (agent) {
@@ -610,24 +642,79 @@ function SettingsContent() {
                 {activeTab === 'billing' && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
                         <CollapsibleCard title="Wallet & Usage" icon={<CreditCard size={18} />} defaultOpen>
-                            <div className="space-y-6">
-                                <div className="text-center py-6 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-1">Available Credits</p>
-                                    <div className="flex items-baseline justify-center gap-0.5">
-                                        <span className="text-4xl font-black text-white">$0</span>
-                                        <span className="text-xl font-black text-muted-foreground">.00</span>
+                            <div className="space-y-5">
+                                {/* Stats grid */}
+                                <div className="grid grid-cols-3 gap-3">
+                                    {/* Credits */}
+                                    <div className="flex flex-col items-center py-4 px-2 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Credits</p>
+                                        <span className="text-xl font-black text-white">
+                                            {leaseBilling?.hasLease && leaseBilling.limitUsd !== null
+                                                ? `$${leaseBilling.limitUsd.toFixed(2)}`
+                                                : '∞'}
+                                        </span>
+                                        <p className="text-[9px] text-muted-foreground/60 mt-0.5">limit</p>
+                                    </div>
+                                    {/* Usage */}
+                                    <div className="flex flex-col items-center py-4 px-2 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Usage</p>
+                                        <span className="text-xl font-black text-amber-400">
+                                            ${(leaseBilling?.usageUsd ?? 0).toFixed(2)}
+                                        </span>
+                                        <p className="text-[9px] text-muted-foreground/60 mt-0.5">spent</p>
+                                    </div>
+                                    {/* Available */}
+                                    <div className="flex flex-col items-center py-4 px-2 bg-white/5 rounded-2xl border border-white/5 shadow-inner">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">Available</p>
+                                        <span className={cn(
+                                            'text-xl font-black',
+                                            (() => {
+                                                if (!leaseBilling?.hasLease || leaseBilling.limitUsd === null) return 'text-green-400';
+                                                const avail = leaseBilling.limitUsd - leaseBilling.usageUsd;
+                                                return avail <= 0 ? 'text-red-400' : avail < leaseBilling.limitUsd * 0.2 ? 'text-yellow-400' : 'text-green-400';
+                                            })()
+                                        )}>
+                                            {leaseBilling?.hasLease && leaseBilling.limitUsd !== null
+                                                ? `$${Math.max(0, leaseBilling.limitUsd - leaseBilling.usageUsd).toFixed(2)}`
+                                                : '∞'}
+                                        </span>
+                                        <p className="text-[9px] text-muted-foreground/60 mt-0.5">remaining</p>
                                     </div>
                                 </div>
 
-                                <div className="flex items-start gap-3 px-4 py-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
-                                    <AlertTriangle size={20} className="text-yellow-400 flex-shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-sm font-bold text-yellow-200 uppercase tracking-wide">Shared Credits Exhausted</p>
-                                        <p className="text-xs text-yellow-200/60 mt-1 leading-relaxed">
-                                            Your agent will pause if it reaches the usage limit. Add funds to ensure uninterrupted service.
-                                        </p>
+                                {/* Expiry / Status */}
+                                {leaseBilling?.hasLease && leaseBilling.expiresAt && (
+                                    <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 border border-white/5 text-xs text-muted-foreground">
+                                        <span className="font-bold uppercase tracking-widest text-[10px]">Lease Expires</span>
+                                        <span className="font-mono">
+                                            {new Date(leaseBilling.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                        </span>
                                     </div>
-                                </div>
+                                )}
+
+                                {/* Warning if no lease or exhausted */}
+                                {leaseBilling && !leaseBilling.hasLease && (
+                                    <div className="flex items-start gap-3 px-4 py-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                                        <AlertTriangle size={20} className="text-yellow-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-bold text-yellow-200 uppercase tracking-wide">No Active Lease</p>
+                                            <p className="text-xs text-yellow-200/60 mt-1 leading-relaxed">
+                                                No shared API key is linked to your agent. Go to Agent settings and re-sync your key.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                {leaseBilling?.hasLease && leaseBilling.limitUsd !== null && (leaseBilling.limitUsd - leaseBilling.usageUsd) <= 0 && (
+                                    <div className="flex items-start gap-3 px-4 py-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                                        <AlertTriangle size={20} className="text-red-400 flex-shrink-0 mt-0.5" />
+                                        <div>
+                                            <p className="text-sm font-bold text-red-200 uppercase tracking-wide">Credits Exhausted</p>
+                                            <p className="text-xs text-red-200/60 mt-1 leading-relaxed">
+                                                Your agent will pause until credits are renewed. Contact support or top up.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <button className="w-full py-4 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-600 to-pink-500 hover:opacity-90 active:scale-[0.98] text-white font-black text-[11px] uppercase tracking-[0.1em] transition-all shadow-xl shadow-purple-500/20 flex items-center justify-center gap-2">
                                     <Zap size={16} fill="white" />

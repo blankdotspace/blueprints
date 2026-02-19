@@ -478,7 +478,7 @@ const managedKeysPlugin: FastifyPluginAsync = async (fastify) => {
 
         const { data, error } = await fastify.supabase
             .from('key_leases')
-            .select('id, managed_key_id, granted_at, expires_at, status, usage_usd, last_used_at, max_agents, managed_provider_keys(provider, label, config)')
+            .select('id, managed_key_id, granted_at, expires_at, status, usage_usd, last_used_at, max_agents, managed_provider_keys(provider, label, config, monthly_limit_usd, daily_limit_usd)')
             .eq('user_id', userId)
             .order('created_at', { ascending: false });
 

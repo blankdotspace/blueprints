@@ -18,6 +18,15 @@ interface ChatScreenProps {
     agent: Agent;
 }
 
+/** Returns true for messages that belong to the terminal, not chat */
+function isTerminalMessage(sender: string, content: string): boolean {
+    // User-sent terminal commands (start with /)
+    if (sender === 'user' && content.startsWith('/')) return true;
+    // Agent terminal output (starts with $ <command>)
+    if (sender === 'agent' && /^\$ /.test(content)) return true;
+    return false;
+}
+
 export function ChatScreen({ agent }: ChatScreenProps) {
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
@@ -41,12 +50,15 @@ export function ChatScreen({ agent }: ChatScreenProps) {
             try {
                 const data = await apiFetch<any[]>(`/agents/${agent.id}/chat`);
                 if (data) {
-                    const history: Message[] = data.reverse().map((msg: any) => ({
-                        id: msg.id,
-                        role: (msg.sender === 'user' ? 'user' : 'assistant') as "user" | "assistant",
-                        content: msg.content,
-                        timestamp: new Date(msg.created_at),
-                    }));
+                    // Filter out terminal messages; backend returns ascending order already
+                    const history: Message[] = data
+                        .filter((msg: any) => !isTerminalMessage(msg.sender, msg.content))
+                        .map((msg: any) => ({
+                            id: msg.id,
+                            role: (msg.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+                            content: msg.content,
+                            timestamp: new Date(msg.created_at),
+                        }));
                     setMessages(history);
                 }
             } catch (err) {
@@ -69,12 +81,15 @@ export function ChatScreen({ agent }: ChatScreenProps) {
                 },
                 (payload) => {
                     const newMsg = payload.new;
+
+                    // Skip terminal messages entirely
+                    if (isTerminalMessage(newMsg.sender, newMsg.content)) return;
+
                     const role = newMsg.sender === 'user' ? 'user' : 'assistant';
 
-                    // Update messages: avoid duplicates if we optimistically added
                     setMessages((prev) => {
+                        // Dedup by DB id
                         if (prev.some(m => m.id === newMsg.id)) return prev;
-
                         return [
                             ...prev,
                             {
@@ -110,16 +125,6 @@ export function ChatScreen({ agent }: ChatScreenProps) {
         const text = input.trim();
         if (!text || sending) return;
 
-        // Optimistic update
-        const userMessageId = crypto.randomUUID();
-        const userMessage: Message = {
-            id: userMessageId,
-            role: 'user',
-            content: text,
-            timestamp: new Date(),
-        };
-
-        setMessages(prev => [...prev, userMessage]);
         setInput('');
         setSending(true);
         setStreaming(true);
@@ -134,7 +139,7 @@ export function ChatScreen({ agent }: ChatScreenProps) {
                 method: 'POST',
                 body: JSON.stringify({ content: text }),
             });
-            // Response will arrive via Supabase subscription
+            // Both the user message and agent response arrive via Supabase realtime subscription
         } catch {
             const assistantMessage: Message = {
                 id: crypto.randomUUID(),
