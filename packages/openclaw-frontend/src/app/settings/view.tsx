@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, Suspense, useEffect } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { useAgent } from '@/hooks/use-agent';
 import { useNotification } from '@/components/notification-provider';
