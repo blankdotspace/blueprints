@@ -4,6 +4,7 @@ import React, { useState, Suspense } from 'react';
 import { useAuth } from '@/components/auth-provider';
 import { useAgent } from '@/hooks/use-agent';
 import { useNotification } from '@/components/notification-provider';
+import { SecurityLevel, Profile } from '@eliza-manager/shared';
 import { BottomNav } from '@/components/bottom-nav';
 import { apiPatch } from '@/lib/api';
 import { createClient } from '@/lib/supabase';
@@ -82,6 +83,8 @@ function SettingsContent() {
     const [apiKey, setApiKey] = useState('');
     const [apiKeyStatus, setApiKeyStatus] = useState<'configured' | 'missing'>('missing');
     const [jsonContent, setJsonContent] = useState('');
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [securityLevel, setSecurityLevel] = useState<SecurityLevel>(SecurityLevel.STANDARD);
 
     const supabase = createClient();
 
@@ -138,34 +141,46 @@ function SettingsContent() {
     };
 
     // Initialize state from agent once loaded
-    React.useEffect(() => {
+    useEffect(() => {
+        if (!user) return;
+        const fetchProfile = async () => {
+            const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+            if (data) setProfile(data);
+        };
+        fetchProfile();
+    }, [user, supabase]);
+
+    useEffect(() => {
         if (agent) {
+            const desired = Array.isArray(agent.agent_desired_state) ? agent.agent_desired_state[0] : agent.agent_desired_state;
+            const metadata = desired?.metadata || {};
+            setSecurityLevel(metadata.security_level ?? SecurityLevel.STANDARD);
+
+            // ... existing login
+            const config = desired?.config || {};
             setAgentName(agent.name || '');
+            setSystemPrompt((config.agents?.defaults?.system_prompt as string) || '');
+            setJsonContent(JSON.stringify(config, null, 2));
 
-            const desiredStateData = agent.agent_desired_state;
-            const desiredState = Array.isArray(desiredStateData)
-                ? desiredStateData[0]
-                : (desiredStateData as any);
-
-            const config = (desiredState?.config || {}) as Record<string, unknown>;
-            const agents = (config.agents || {}) as Record<string, unknown>;
-            const defaults = (agents.defaults || {}) as Record<string, unknown>;
-
-            setSystemPrompt((defaults.system_prompt as string) || '');
-
-            const models = (config.models || {}) as Record<string, unknown>;
-            const providers = (models.providers || {}) as Record<string, unknown>;
-            const hasKey = Object.values(providers || {}).some(
-                (p) => (p as Record<string, unknown>)?.apiKey
-            );
+            const providers = config.models?.providers || {};
+            const hasKey = !!(providers.openrouter?.apiKey || providers.anthropic?.apiKey || providers.openai?.apiKey);
             setApiKeyStatus(hasKey ? 'configured' : 'missing');
-
-            setJsonContent(prev => {
-                if (!prev || prev === '{}' || prev === '') return JSON.stringify(config, null, 2);
-                return prev;
-            });
         }
     }, [agent]);
+
+    const handleUpdateSecurity = async (level: SecurityLevel) => {
+        if (!agent) return;
+        setSecurityLevel(level);
+        try {
+            await apiPatch(`/agents/${agent.id}/config`, {
+                metadata: { security_level: level }
+            });
+            showNotification('Security level updated', 'success');
+            await refetch(true);
+        } catch (err: any) {
+            showNotification('Failed to update security: ' + err.message, 'error');
+        }
+    };
 
     const handleSaveAgent = async () => {
         if (!agent) return;
@@ -480,18 +495,54 @@ function SettingsContent() {
                         {/* Security */}
                         <CollapsibleCard title="Environment Security" icon={<Shield size={18} />} defaultOpen>
                             <div className="space-y-4">
-                                <div className="flex items-center justify-between px-4 py-3 rounded-xl bg-white/5 border border-white/10">
-                                    <div>
-                                        <p className="text-sm font-semibold">Sandbox Mode</p>
-                                        <p className="text-xs text-muted-foreground">Agent runs in isolated environment</p>
-                                    </div>
-                                    <div className="w-10 h-6 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-end px-1">
-                                        <div className="w-4 h-4 rounded-full bg-green-400 shadow-[0_0_8px_rgba(74,222,128,0.5)]" />
+                                <div className="grid gap-3">
+                                    {[
+                                        { level: SecurityLevel.STANDARD, label: 'Standard', desc: 'Secure Sandbox: Read-only rootfs, no network privileges, dropped caps. Recommended.' },
+                                        { level: SecurityLevel.ADVANCED, label: 'Advanced', desc: 'Extended isolation: Adds SYS_ADMIN capability for specialized tools. Still readonly root.' },
+                                        { level: SecurityLevel.PRO, label: 'Pro', desc: 'Full Development: Adds writeable rootfs and NET_ADMIN. For complex agent tasks.' },
+                                        { level: SecurityLevel.ROOT, label: 'Root (Super Admin)', desc: 'UNSAFE: Full host level access as root user. Use with extreme caution.', adminOnly: true }
+                                    ]
+                                        .filter(opt => !opt.adminOnly || profile?.role === 'super_admin')
+                                        .map((opt) => (
+                                            <button
+                                                key={opt.level}
+                                                onClick={() => handleUpdateSecurity(opt.level)}
+                                                className={cn(
+                                                    "group relative flex flex-col items-start gap-1 px-4 py-3 rounded-xl border text-left transition-all",
+                                                    securityLevel === opt.level
+                                                        ? "bg-primary/10 border-primary shadow-[0_4px_12px_rgba(var(--primary-rgb),0.1)]"
+                                                        : "bg-white/5 border-white/10 hover:border-white/20 active:bg-white/10"
+                                                )}
+                                            >
+                                                <div className="flex items-center justify-between w-full">
+                                                    <span className={cn(
+                                                        "text-sm font-semibold",
+                                                        securityLevel === opt.level ? "text-primary" : "text-white"
+                                                    )}>
+                                                        {opt.label} Isolation
+                                                    </span>
+                                                    {securityLevel === opt.level && (
+                                                        <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                                                            <div className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    {opt.desc}
+                                                </p>
+                                            </button>
+                                        ))}
+                                </div>
+
+                                <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-200/80">
+                                    <div className="flex gap-3">
+                                        <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                                        <p className="text-[11px] leading-relaxed">
+                                            <strong>Warning:</strong> Changing security settings requires an agent restart to take effect.
+                                            Higher levels grant the agent more access to the underlying system, which should only be used if trusted.
+                                        </p>
                                     </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground leading-relaxed">
-                                    Your agent is currently in an isolated environment for maximum security.
-                                </p>
                             </div>
                         </CollapsibleCard>
 

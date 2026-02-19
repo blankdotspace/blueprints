@@ -113,15 +113,28 @@ export async function startPicoClawAgent(
         // 3. Start Container
         logger.info(`Starting PicoClaw agent ${agentId}...`);
 
-        const { data } = await supabase
+        const { data: agentData } = await supabase
             .from('agents')
-            .select(`projects ( tier )`)
+            .select(`project_id, projects ( user_id, tier )`)
             .eq('id', agentId)
             .single();
 
-        const userTier = (data?.projects as any)?.tier ?? UserTier.FREE;
+        const project = (agentData?.projects as any);
+        const userTier = project?.tier ?? UserTier.FREE;
+        const userId = project?.user_id;
+
+        let role: string | undefined;
+        if (userId) {
+            const { data: profileData } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', userId)
+                .single();
+            role = profileData?.role;
+        }
+
         const requestedLevel = metadata?.security_level || SecurityLevel.STANDARD;
-        const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel);
+        const effectiveLevel = resolveSecurityLevel(userTier, requestedLevel, role);
 
         let capAdd: string[] = [];
         let readonlyRoot = true;
@@ -133,13 +146,13 @@ export async function startPicoClawAgent(
                 capAdd = [];
                 break;
 
-            case SecurityLevel.PRO:
+            case SecurityLevel.ADVANCED:
                 readonlyRoot = true;
                 capAdd = ['SYS_ADMIN'];
                 break;
 
-            case SecurityLevel.ADVANCED:
-                readonlyRoot = false; // Allow writing to root if needed (though discouraged)
+            case SecurityLevel.PRO:
+                readonlyRoot = false;
                 capAdd = ['SYS_ADMIN', 'NET_ADMIN'];
                 break;
 

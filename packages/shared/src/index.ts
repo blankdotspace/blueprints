@@ -117,14 +117,21 @@ export const TIER_CONFIG = {
     }
 };
 
-export function resolveSecurityLevel(userTier: UserTier | string, requestedLevel: SecurityLevel | number): SecurityLevel {
+export function resolveSecurityLevel(userTier: UserTier | string, requestedLevel: SecurityLevel | number, role?: string): SecurityLevel {
+    // Super admins can always use any level
+    if (role === 'super_admin') {
+        return (requestedLevel as SecurityLevel) || SecurityLevel.STANDARD;
+    }
+
     const tier = (userTier as UserTier) || UserTier.FREE;
     // Fallback to FREE config if tier not found
     const config = TIER_CONFIG[tier] || TIER_CONFIG[UserTier.FREE];
     const maxLevel = config.maxSecurityLevel;
 
     // effective = min(user_cap, requested)
-    return Math.min(maxLevel, requestedLevel || 0);
+    // Also cap it to ROOT - 1 (PRO) for non-super-admins just in case
+    const cappedRequested = Math.min(requestedLevel || 0, SecurityLevel.PRO);
+    return Math.min(maxLevel, cappedRequested);
 }
 
 export type TierConfig = typeof TIER_CONFIG[UserTier.FREE];
@@ -142,6 +149,7 @@ export interface Profile {
     avatar_url?: string;
     updated_at?: string;
     tier: UserTier | string; // Added tier
+    role?: 'user' | 'admin_read' | 'super_admin'; // Added role
 }
 
 export interface Project {
